@@ -1,0 +1,17 @@
+# Sorties de compilation et reglages locaux
+dist/IC7760Link.exe
+dist/LISEZMOI.md
+dist/data/
+data/
+*.zip
+rapport*.txt
+diagnostic-ci-v.txt
+crash.log
+*.tmp
+*.new
+
+# Notes et journaux locaux (non publies)
+CHAT.md
+REPRISE.md
+_ Info pour moi/
+/*.png

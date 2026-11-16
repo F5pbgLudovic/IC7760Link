@@ -1,0 +1,62 @@
+IC-7760 Link 1.1 - AIDE POUR LE PREMIER ESSAI AVEC LE VRAI POSTE
+==================================================================
+
+Ce logiciel a été écrit sans avoir pu l'essayer sur un vrai IC-7760. Votre aide est précieuse :
+quelques minutes d'essai, et trois petits fichiers à renvoyer, permettent de le corriger à distance.
+
+1) PRÉPARER
+   - Extrayez le zip (clic droit > Extraire tout...) dans un dossier, SANS lancer les fichiers depuis l intérieur du zip.
+   - Allumez l'IC-7760 et branchez le câble USB à l'ordinateur (pilote USB d'Icom installé).
+   - Dans le Gestionnaire de périphériques > Ports (COM et LPT), repérez le port du poste,
+     par exemple « Silicon Labs ... (COM5) » ou « USB Serial Port (COM5) ». Notez son numéro.
+     S'il y en a deux, prenez d'abord le premier (« Standard » / CI-V), sinon essayez l'autre.
+   - Dans le poste (menu SET > Connectors > CI-V) : vitesse 115200 ou « Auto », adresse 94h (ou B2h),
+     « CI-V USB Port » = Unlink si possible, « CI-V USB Echo Back » = OFF.
+   - Fermez tout autre logiciel qui utilise ce port (HRD, WSJT-X, logiciel d'Icom...).
+
+2) ÉTAPE A : LE DIAGNOSTIC (2 minutes, SANS ouvrir le logiciel)
+   - Double-cliquez sur « Diagnostic.bat ».
+   - Tapez le port (ex. COM5), puis Entrée ; laissez 115200 et 94 (Entrée, Entrée).
+   - Attendez 12 secondes. Le fichier « diagnostic-ci-v.txt » apparaît dans le même dossier.
+   >>> Renvoyez-moi ce fichier. C'est le plus important : il contient les trames brutes du poste
+       (notamment celles de la cascade) qui permettent de vérifier que tout est bien compris.
+   - S'il est vide ou contient « CONNEXION IMPOSSIBLE » : essayez l'autre port COM, ou une autre vitesse.
+
+3) ÉTAPE B : ESSAI DU LOGICIEL
+   - Lancez IC7760Link.exe. En haut à droite : choisissez le port COM du poste, 115200, adresse 94 (B2 au choix dans le menu),
+     puis cliquez CONNECTER (le bouton devient « DÉCONNECTER » et la fréquence s'affiche).
+   - Regardez et notez ce qui ne va pas, par exemple :
+       * La fréquence et le mode affichés sont-ils ceux du poste ? (MAIN et SUB)
+       * La cascade apparaît-elle ? A-t-elle le bon décalage (le curseur rouge est-il sur la fréquence
+         du poste) ? Les signaux sont-ils au bon endroit quand vous changez de span ?
+       * Tourner le bouton du poste change-t-il l'affichage ? Cliquer sur la cascade accorde-t-il le poste ?
+       * Les boutons (mode, filtre, préampli, AGC, NB, NR...) agissent-ils sur le poste ?
+       * Les potentiomètres (AF, RF, puissance...) agissent-ils ?  Le S-mètre bouge-t-il ?
+   - NE TESTEZ L'ÉMISSION (PTT, TUNE, CW) QUE sur une charge fictive ou une antenne adaptée,
+     à faible puissance.
+   - Faites UNE capture d'écran de la fenêtre pendant que la cascade fonctionne (touche Impr écran,
+     ou outil Capture d'écran de Windows), et une autre si quelque chose d'anormal s'affiche.
+
+4) ÉTAPE C : ENREGISTRER LE JOURNAL DES TRAMES (si un problème persiste)
+   - Dans le logiciel : bouton engrenage (en haut à droite) > menu « Monitoring et détection CI-V » > « Ouvrir le monitoring CI-V ».
+   - Reproduisez le problème (par exemple changer de span, de mode, de fréquence).
+   - Dans cette fenêtre, utilisez le bouton d'enregistrement pour sauvegarder le fichier,
+     et renvoyez-le.
+
+5) CE QU'IL FAUT ME RENVOYER (en résumé)
+   [ ] diagnostic-ci-v.txt   (étape A, le plus utile)
+   [ ] une ou deux captures d'écran du logiciel connecté
+   [ ] le fichier enregistré du « Monitoring CI-V » (étape C, si un problème)
+   [ ] quelques lignes : ce qui marche, ce qui ne marche pas, la version du firmware du poste
+       (menu SET > Others > Version) et la version de Windows
+   Si le logiciel plante, joindre aussi le fichier « crash.log » du dossier « data » (s'il existe).
+
+6) NOTES
+   - Le logiciel n'agit jamais sur DTR/RTS : pas d'émission accidentelle par la ligne série.
+   - La fenêtre se redimensionne librement en gardant ses proportions : tout reste visible, sans ascenseur.
+   - Le bouton « ? » en haut à droite rappelle les gestes (clic cascade, molette, Ctrl+molette = zoom...).
+   - Sans poste, vous pouvez toujours voir le logiciel avec « Poste virtuel (simulateur IC-7760) ».
+
+Merci pour votre aide !
+
+NOUVEAU 1.2 : le diagnostic enregistre maintenant aussi quelques trames brutes de la cascade (lignes RX 27 00...) et indique en fin de fichier le nombre de trames de cascade reçues.
