@@ -16,6 +16,7 @@
 - **Poste** : MAIN/SUB (fréquence, mode, filtres, DATA), Dualwatch, Split, RIT/XIT, tuner, largeur de filtre, PBT, AF/RF/SQL, PRE/ATT/AGC, NB/NR/ANF/notch/APF/TPF/DIGI-SEL/IP+, puissance, micro, compresseur, drive, moniteur, VOX, BK-IN, CW (texte libre, messages F1-F4), mémoires vocales, bandes, mémoires, scan.
 - **Vumètres** en barres ou **à aiguille façon écran IC-7760** (S, Po, SWR, ALC, COMP, Vd, Id), MAIN et SUB côte à côte.
 - **Options** : couleurs du waterfall et de toute l'interface (chiffres de fréquence MAIN/SUB, fonds, textes…), réglages avancés du poste (catalogue de **530 commandes CI-V**, dont tout le menu SET), monitoring et détection CI-V.
+- **Verrous** (clic droit sur un bouton ou un potentiomètre, mémorisés), limite de puissance **P.MAX**, vitesse de la molette réglable, puissance moyennée avec repère de crête sur le vumètre à aiguille.
 - **Export / import** de toute la configuration, y compris les réglages du poste affichés sur les potentiomètres et boutons.
 - **Fenêtre redimensionnable à l'identique** : proportions conservées, rien n'est tronqué, aucun ascenseur.
 - **Poste virtuel** intégré pour essayer le logiciel sans poste, et **autotest** (`--selftest`).

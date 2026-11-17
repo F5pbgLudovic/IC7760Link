@@ -1,4 +1,4 @@
-﻿# IC-7760 Link 2.6
+# IC-7760 Link 2.8
 
 Télécommande complète de l'ICOM IC-7760 par la liaison USB (protocole CI-V), avec cascade (waterfall) haute qualité.
 Logiciel **portable et autonome** pour Windows 10 / 11 : un seul `IC7760Link.exe`, aucune installation, aucun pilote supplémentaire
@@ -100,3 +100,10 @@ Licence : GPL v3. Projet indépendant, non affilié à ICOM.
 
 ## Nouveautés 2.6
 - Documentation complète (README, AIDE.md, CHANGELOG), licence GPL v3, publication sur GitHub : https://github.com/F5pbgLudovic/IC7760Link
+
+## Nouveautés 2.8 (dont 2.7)
+- Clic droit sur un bouton ou un potentiomètre = verrouillage (rouge, mémorisé). Un potentiomètre verrouillé bloque ses touches associées (largeur de filtre, puissance, RIT 0, AUTO). Couleur réglable dans Options.
+- Puissance : touche 200 W (ex-MAX) et P.MAX (limite le potentiomètre et grise les préréglages supérieurs).
+- Zone « Votre indicatif » clarifiée (remplace {C} dans les messages F1-F4).
+- Options > Réglage Molette souris : vitesse des potentiomètres à la molette, 1 à 10 % par cran (2 % par défaut). Boutons STOP non verrouillables.
+- Vumètre à aiguille : puissance moyennée avec repère de crête en émission ; chiffres de fréquence sans « 8 » ni zéros de tête grisés ; titre « IC-7760 Link V2.8 @F5PBG 2026 ».

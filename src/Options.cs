@@ -71,17 +71,17 @@ namespace IC7760Link
     // Couleurs de l'interface (reglables dans Options)
     public static class Theme
     {
-        public static readonly string[] Names = { "Arrière-plan général", "Panneaux", "Boutons et champs", "Bordures", "Texte (avant-plan)", "Texte atténué", "Accent (titres, MAIN, voyants)", "Cyan (mode, infos)", "Rouge (émission, alertes)", "Vert (connexion, OK)", "Bleu (SUB)", "Chiffres fréquence MAIN", "Chiffres fréquence SUB", "Fond des afficheurs de fréquence" };
+        public static readonly string[] Names = { "Arrière-plan général", "Panneaux", "Boutons et champs", "Bordures", "Texte (avant-plan)", "Texte atténué", "Accent (titres, MAIN, voyants)", "Cyan (mode, infos)", "Rouge (émission, alertes)", "Vert (connexion, OK)", "Bleu (SUB)", "Chiffres fréquence MAIN", "Chiffres fréquence SUB", "Fond des afficheurs de fréquence", "Verrouillage (clic droit sur boutons/réglages)" };
         static readonly Color[] def;
         static Theme() { def = Snapshot(); }
         public static Color Get(int i)
         {
-            switch (i) { case 0: return T.Bg; case 1: return T.Panel; case 2: return T.Panel2; case 3: return T.Edge; case 4: return T.Text; case 5: return T.Dim; case 6: return T.Amber; case 7: return T.Cyan; case 8: return T.Red; case 9: return T.Green; case 10: return T.Blue; case 11: return T.FreqMain; case 12: return T.FreqSub; default: return T.FreqBg; }
+            switch (i) { case 0: return T.Bg; case 1: return T.Panel; case 2: return T.Panel2; case 3: return T.Edge; case 4: return T.Text; case 5: return T.Dim; case 6: return T.Amber; case 7: return T.Cyan; case 8: return T.Red; case 9: return T.Green; case 10: return T.Blue; case 11: return T.FreqMain; case 12: return T.FreqSub; case 13: return T.FreqBg; default: return T.Lock; }
         }
         public static void Set(int i, Color c)
         {
             c = Color.FromArgb(255, c);
-            switch (i) { case 0: T.Bg = c; break; case 1: T.Panel = c; break; case 2: T.Panel2 = c; break; case 3: T.Edge = c; break; case 4: T.Text = c; break; case 5: T.Dim = c; break; case 6: T.Amber = c; break; case 7: T.Cyan = c; break; case 8: T.Red = c; break; case 9: T.Green = c; break; case 10: T.Blue = c; break; case 11: T.FreqMain = c; break; case 12: T.FreqSub = c; break; default: T.FreqBg = c; break; }
+            switch (i) { case 0: T.Bg = c; break; case 1: T.Panel = c; break; case 2: T.Panel2 = c; break; case 3: T.Edge = c; break; case 4: T.Text = c; break; case 5: T.Dim = c; break; case 6: T.Amber = c; break; case 7: T.Cyan = c; break; case 8: T.Red = c; break; case 9: T.Green = c; break; case 10: T.Blue = c; break; case 11: T.FreqMain = c; break; case 12: T.FreqSub = c; break; case 13: T.FreqBg = c; break; default: T.Lock = c; break; }
         }
         public static Color Default(int i) { return def[i]; }
         public static Color[] Snapshot() { Color[] a = new Color[Names.Length]; for (int i = 0; i < a.Length; i++) a[i] = Get(i); return a; }
@@ -117,7 +117,7 @@ namespace IC7760Link
             this.openSet = openSet; this.openMon = openMon;
             Text = "Options"; BackColor = T.Bg; ForeColor = T.Text; Font = new Font("Segoe UI", 9f); ClientSize = new Size(860, 470); StartPosition = FormStartPosition.CenterParent; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; MinimizeBox = false;
             ListBox menu = new ListBox(); menu.SetBounds(0, 0, 190, 470); menu.BackColor = Color.FromArgb(14, 18, 26); menu.ForeColor = T.Text; menu.BorderStyle = BorderStyle.None; menu.Font = new Font("Segoe UI Semibold", 10f); menu.ItemHeight = 28; menu.IntegralHeight = false;
-            menu.Items.Add("  Couleurs du waterfall"); menu.Items.Add("  Couleurs de l'interface"); menu.Items.Add("  Réglages avancés du poste"); menu.Items.Add("  Monitoring et détection CI-V"); menu.SelectedIndex = 0; Controls.Add(menu);
+            menu.Items.Add("  Couleurs du waterfall"); menu.Items.Add("  Couleurs de l'interface"); menu.Items.Add("  Réglages avancés du poste"); menu.Items.Add("  Monitoring et détection CI-V"); menu.Items.Add("  Réglage Molette souris"); menu.SelectedIndex = 0; Controls.Add(menu);
             menu.SelectedIndexChanged += delegate
             {
                 switch (menu.SelectedIndex)
@@ -125,6 +125,7 @@ namespace IC7760Link
                     case 1: BuildThemePage(); break;
                     case 2: BuildActionPage("Réglages avancés du poste", "Liste complète des réglages internes de l'IC-7760 (menus SET, affichage, CW, modulation, etc.) : recherche par mot-clé, lecture de la valeur actuelle dans le poste et modification.\nÀ utiliser avec précaution : chaque changement est envoyé directement au poste.", "Ouvrir les réglages avancés", openSet); break;
                     case 3: BuildActionPage("Monitoring et détection CI-V", "Journal en direct des trames CI-V échangées avec le poste, affichage de l'adresse CI-V détectée sur la liaison et recherche automatique de l'adresse et de la vitesse du poste.\nUtile quand le poste ne se connecte pas sans qu'on sache pourquoi.", "Ouvrir le monitoring CI-V", openMon); break;
+                    case 4: BuildWheelPage(); break;
                     default: BuildColorsPage(); break;
                 }
             };
@@ -168,6 +169,18 @@ namespace IC7760Link
             };
             Button cl = Mk("Fermer", 556, 420, 90); cl.Click += delegate { Close(); };
         }
+        void BuildWheelPage()
+        {
+            page.Controls.Clear();
+            Label h = new Label(); h.Text = "Réglage Molette souris"; h.Font = new Font("Segoe UI Semibold", 12f); h.ForeColor = T.Amber; h.SetBounds(6, 8, 400, 26); page.Controls.Add(h);
+            Label h1 = new Label(); h1.Text = "Vitesse Potentiomètre : variation d'un potentiomètre pour un cran de molette de la souris, en % de sa course (1 à 10 %, 2 % par défaut). Maj + molette = pas plus fin."; h1.SetBounds(6, 44, 640, 40); page.Controls.Add(h1);
+            Label lv = new Label(); lv.Font = new Font("Segoe UI Semibold", 11f); lv.ForeColor = T.Cyan; lv.SetBounds(560, 104, 90, 24); page.Controls.Add(lv);
+            TrackBar tb = new TrackBar(); tb.Minimum = 1; tb.Maximum = 10; tb.TickFrequency = 1; tb.LargeChange = 1; tb.SetBounds(6, 96, 540, 45); tb.Value = Math.Max(1, Math.Min(10, Knob.WheelPct)); page.Controls.Add(tb);
+            lv.Text = tb.Value + " % / cran";
+            tb.ValueChanged += delegate { Knob.WheelPct = tb.Value; Cfg.SetInt("wheelpct", tb.Value); Cfg.Save(); lv.Text = tb.Value + " % / cran"; };
+            Button df = Mk("Valeur par défaut (2 %)", 6, 160, 200); df.Click += delegate { tb.Value = 2; };
+            Button cl = Mk("Fermer", 556, 420, 90); cl.Click += delegate { Close(); };
+        }
         void BuildActionPage(string title, string text, string button, Action open)
         {
             page.Controls.Clear();
@@ -182,7 +195,7 @@ namespace IC7760Link
             Label h1 = new Label(); h1.Text = "Cliquez sur une couleur pour la modifier (palette 64 couleurs ou RVB). Le changement est immédiat et mémorisé."; h1.SetBounds(6, 38, 640, 20); page.Controls.Add(h1);
             for (int i = 0; i < Theme.Names.Length; i++)
             {
-                int k = i; int col = i / 7, row = i % 7; int x = 6 + col * 320, y = 74 + row * 44;
+                int k = i; int col = i / 8, row = i % 8; int x = 6 + col * 320, y = 74 + row * 44;
                 Panel p = new Panel(); p.SetBounds(x, y, 70, 30); p.BorderStyle = BorderStyle.FixedSingle; p.Cursor = Cursors.Hand; p.BackColor = Theme.Get(k); page.Controls.Add(p);
                 Label l = new Label(); l.Text = Theme.Names[k]; l.SetBounds(x + 78, y + 5, 235, 20); page.Controls.Add(l);
                 p.Click += delegate

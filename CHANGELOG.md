@@ -2,6 +2,15 @@
 
 Format : une section par version, la plus récente en haut. Dates = 2026.
 
+## 2.8 — 17 novembre (inclut les changements de la 2.7, non publiée)
+- Titre de la fenêtre : « IC-7760 Link V2.8 @F5PBG 2026 ».
+- **Verrous** : un clic droit sur un bouton ou un potentiomètre le verrouille (rouge). Un potentiomètre verrouillé bloque aussi ses touches associées (préréglages de largeur de filtre, de puissance, RIT 0, AUTO du niveau) ; une touche verrouillée ne verrouille pas le potentiomètre. Les verrous sont mémorisés et rétablis au redémarrage. Couleur réglable : Options > Couleurs de l'interface > Verrouillage.
+- **Puissance** : la touche MAX devient **200 W** ; nouvelle touche **P.MAX** (saisie d'une valeur) qui limite le potentiomètre PUISS. et grise les préréglages supérieurs. La limite est mémorisée.
+- **Molette sur les potentiomètres** : Options > « Réglage Molette souris » > Vitesse Potentiomètre, de 1 à 10 % de la course par cran (2 % par défaut, mémorisé ; Maj = pas plus fin).
+- **Puissance en émission** : l'aiguille (et le texte) montrent la puissance moyennée, avec un repère rouge de crête ; Po est lue en permanence (plus seulement quand le logiciel commande l'émission) et l'état émission du poste est interrogé (PTT au micro ou au poste) ; échelle des watts corrigée (143 = 100 W, 212 = 200 W).
+- Boutons STOP (scan, voix, CW) : pas de verrouillage par clic droit.
+- Zone indicatif des messages CW (sous STOP des mémoires vocales) clarifiée : « Votre indicatif », avec l'explication de {C}.
+
 ## 2.6 — 16 novembre
 - Publication sur GitHub : documentation (README, AIDE, CHANGELOG, CLAUDE.md, décisions d'architecture dans `docs/adr`), licence GPL v3.
 - Le zip contient maintenant AIDE.md et LICENSE.

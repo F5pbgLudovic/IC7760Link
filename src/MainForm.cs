@@ -8,7 +8,7 @@ namespace IC7760Link
 {
     public class MainForm : Form
     {
-        public const string Version = "2.6";
+        public const string Version = "2.8";
         readonly Rig rig = new Rig();
         readonly ScopeView[] views = new ScopeView[2];
         readonly List<Action> links = new List<Action>();
@@ -27,7 +27,7 @@ namespace IC7760Link
         Btn bScMain, bScSub, bScDualV, bScDualH, bAuto, bHold, bPeaks, bPlan, bSpeed, bAvg, bSweep; Label lbRef; DarkCombo cbPal; Knob kLow, kHigh;
         int layoutMode = 0;
         // console
-        Btn[] bandBtn; int memCh = 1; Label lbMem; TextBox tbCw; Knob kWidth;
+        Btn[] bandBtn; int memCh = 1; Label lbMem; TextBox tbCw; Knob kWidth, kPow; Btn bPmax; readonly Btn[] pwBtn = new Btn[4];
         readonly List<KeyValuePair<string, long>> dummy = new List<KeyValuePair<string, long>>();
 
         static readonly string[] BandName = { "1.8", "3.5", "5", "7", "10", "14", "18", "21", "24", "28", "50", "WWV" };
@@ -38,8 +38,8 @@ namespace IC7760Link
 
         public MainForm()
         {
-            Text = "IC-7760 Link " + Version + " — télécommande USB (CI-V)";
-            Theme.Load(); Palettes.LoadCfg(); ScopeColors.Load();
+            Text = "IC-7760 Link V" + Version + " @F5PBG 2026 - télécommande USB (CI-V)";
+            Knob.WheelPct = Math.Max(1, Math.Min(10, Cfg.GetInt("wheelpct", 2))); Theme.Load(); Palettes.LoadCfg(); ScopeColors.Load();
             AutoScaleMode = AutoScaleMode.None;   // l'échelle est gérée par la « scène » (voir plus bas)
             try { using (Graphics gd = CreateGraphics()) T.Dpi = gd.DpiX; } catch { }
             BackColor = T.Bg; ForeColor = T.Text; Font = new Font("Segoe UI", 9f);
@@ -51,6 +51,7 @@ namespace IC7760Link
             BuildScopeArea(); BuildConsole(); BuildScopeBar(); BuildModeBar(); BuildTop();
             Controls.SetChildIndex(scopeHost, 0);
             BuildStage();
+            InitLocks();
 
             rig.Heard += delegate(byte src) { MonitorForm m = monitor; if (m != null && !m.IsDisposed) m.Heard(src); };
             rig.Log += delegate(string s, bool tx) { MonitorForm m = monitor; if (m != null && !m.IsDisposed) m.Add(s, tx); };
@@ -143,7 +144,7 @@ namespace IC7760Link
             bXit = FB(f, "XIT", 48); bXit.Accent = T.Green; bXit.Click += delegate { rig.SetXit(!rig.XitOn); };
             Btn rz = FB(f, "RIT 0", 52); rz.Led = false; rz.Click += delegate { rig.SetRitFreq(0); };
             kRit = new Knob(); kRit.Label = "RIT"; kRit.Min = -1000; kRit.Max = 1000; kRit.Center = true; kRit.Default = 0; kRit.Size = new Size(54, 40); kRit.Fmt = delegate(int v) { return v.ToString("+0;-0;0"); };
-            kRit.UserChanged += delegate(int v) { rig.SetRitFreq(v); }; f.Controls.Add(kRit);
+            kRit.UserChanged += delegate(int v) { rig.SetRitFreq(v); }; f.Controls.Add(kRit); kRit.Link(rz);
             Sep(f);
             bTuner = FB(f, "TUNER", 62); bTuner.Click += delegate { rig.Write(0, "1C 01", rig.Get(0, "1C 01") == 0 ? 1 : 0); };
             Btn tu = FB(f, "TUNE", 58); tu.Led = false; tu.Click += delegate { rig.Tune(); };
@@ -197,10 +198,10 @@ namespace IC7760Link
             cbPal.SelectedIndexChanged += delegate { foreach (ScopeView v in views) if (v != null) v.PaletteIdx = cbPal.SelectedIndex; Cfg.SetInt("palette", cbPal.SelectedIndex); }; f.Controls.Add(cbPal);
             bAuto = FB(f, "AUTO", 56); bAuto.Click += delegate { bool v = !views[0].AutoLevel; foreach (ScopeView s in views) { s.AutoLevel = v; } };
             kLow = SmallKnob(f, "Bas", 0, 120, 30); kHigh = SmallKnob(f, "Haut", 40, 160, 130);
-            kLow.UserChanged += delegate(int v) { foreach (ScopeView s in views) { s.AutoLevel = false; s.Low = v; } }; kHigh.UserChanged += delegate(int v) { foreach (ScopeView s in views) { s.AutoLevel = false; s.High = v; } };
-            bSpeed = FB(f, "VITESSE 1×", 90); bSpeed.Led = false; bSpeed.MouseUp += delegate(object so, MouseEventArgs me) { if (me.Button == MouseButtons.Left) StepSpeed(1); else if (me.Button == MouseButtons.Right) StepSpeed(-1); };
-            bAvg = FB(f, "MOY 2", 66); bAvg.Led = false; bAvg.MouseUp += delegate(object so, MouseEventArgs me) { if (me.Button == MouseButtons.Right) StepAvg(1); else if (me.Button == MouseButtons.Left) StepAvg(-1); };
-            bPeaks = FB(f, "PICS", 52); bPeaks.MouseUp += delegate(object so, MouseEventArgs me) { if (me.Button == MouseButtons.Left) { bool v = !views[0].PeakHold; foreach (ScopeView s in views) s.PeakHold = v; } else if (me.Button == MouseButtons.Right) PeakMenu(bPeaks); };
+            kLow.UserChanged += delegate(int v) { foreach (ScopeView s in views) { s.AutoLevel = false; s.Low = v; } }; kLow.Link(bAuto); kHigh.Link(bAuto); kHigh.UserChanged += delegate(int v) { foreach (ScopeView s in views) { s.AutoLevel = false; s.High = v; } };
+            bSpeed = FB(f, "VITESSE 1×", 90); bSpeed.Led = false; bSpeed.LockOnRight = false; bSpeed.MouseUp += delegate(object so, MouseEventArgs me) { if (me.Button == MouseButtons.Left) StepSpeed(1); else if (me.Button == MouseButtons.Right) StepSpeed(-1); };
+            bAvg = FB(f, "MOY 2", 66); bAvg.Led = false; bAvg.LockOnRight = false; bAvg.MouseUp += delegate(object so, MouseEventArgs me) { if (me.Button == MouseButtons.Right) StepAvg(1); else if (me.Button == MouseButtons.Left) StepAvg(-1); };
+            bPeaks = FB(f, "PICS", 52); bPeaks.LockOnRight = false; bPeaks.MouseUp += delegate(object so, MouseEventArgs me) { if (me.Button == MouseButtons.Left) { bool v = !views[0].PeakHold; foreach (ScopeView s in views) s.PeakHold = v; } else if (me.Button == MouseButtons.Right) PeakMenu(bPeaks); };
             bPlan = FB(f, "PLAN", 56); bPlan.Click += delegate { bool v = !views[0].ShowBandPlan; foreach (ScopeView s in views) s.ShowBandPlan = v; };
             Btn cl = FB(f, "EFFACER", 70); cl.Led = false; cl.Click += delegate { foreach (ScopeView s in views) s.ClearWaterfall(); };
             links.Add(delegate
@@ -283,7 +284,7 @@ namespace IC7760Link
             Btn mv = Mini(gb, "M→V", 8, 190, 50); mv.Click += delegate { rig.Memory(0x0A, 0); };
             Btn mc = Mini(gb, "EFFACER", 62, 190, 70); mc.Click += delegate { if (MessageBox.Show(this, "Effacer la mémoire " + memCh + " ?", "Mémoire", MessageBoxButtons.YesNo) == DialogResult.Yes) rig.Memory(0x0B, 0); };
             Btn vf = Mini(gb, "VFO", 136, 190, 50); vf.Click += delegate { rig.Raw((byte)0x07); };
-            Btn sc = Mini(gb, "SCAN", 190, 190, 62); sc.Click += delegate { rig.Raw(new byte[] { 0x0E, 0x01 }); }; Btn ss = Mini(gb, "STOP", 256, 190, 34); ss.Click += delegate { rig.Raw(new byte[] { 0x0E, 0x00 }); };
+            Btn sc = Mini(gb, "SCAN", 190, 190, 62); sc.Click += delegate { rig.Raw(new byte[] { 0x0E, 0x01 }); }; Btn ss = Mini(gb, "STOP", 256, 190, 34); ss.LockOnRight = false; ss.Click += delegate { rig.Raw(new byte[] { 0x0E, 0x00 }); };
 
             // ---- récepteur
             Group gr = G(host, "Récepteur (actif : voie MAIN/SUB sélectionnée)", ref x, 384);
@@ -312,21 +313,34 @@ namespace IC7760Link
             RKnob(gf, ref kx, "PITCH", "14 09", 0, 255, delegate(int v) { return (300 + v * 600 / 255) + " Hz"; }, false, false);
             RKnob(gf, ref kx, "APF", "14 05", 0, 255, PctC, true, true);
             int[] pre = { 50, 250, 500, 1000, 1800, 2400, 3000, 3600 }; string[] pn = { "50", "250", "500", "1k", "1.8k", "2.4k", "3k", "3.6k" };
-            for (int i = 0; i < pre.Length; i++) { int w = pre[i]; Btn b = Mini(gf, pn[i], 8 + (i % 4) * 80, 104 + (i / 4) * 32, 76); b.Click += delegate { rig.SetWidth(Rx, Math.Max(Widths.Min(rig.Rx[Rx].Mode), Math.Min(Widths.Max(rig.Rx[Rx].Mode), w))); }; }
+            for (int i = 0; i < pre.Length; i++) { int w = pre[i]; Btn b = Mini(gf, pn[i], 8 + (i % 4) * 80, 104 + (i / 4) * 32, 76); kWidth.Link(b); b.Click += delegate { rig.SetWidth(Rx, Math.Max(Widths.Min(rig.Rx[Rx].Mode), Math.Min(Widths.Max(rig.Rx[Rx].Mode), w))); }; }
             Label lw = new Label(); lw.Text = "Préréglages de largeur de filtre IF (Hz)"; lw.ForeColor = T.Dim; lw.Font = new Font("Segoe UI", 7.5f); lw.SetBounds(8, 172, 340, 16); gf.Controls.Add(lw);
             Toggle(gf, 8, 192, 96, "16 50", "VERROU", false); Toggle(gf, 108, 192, 100, "16 5E", "SUIVI M/S", false);
 
             // ---- émission
             Group gt = G(host, "Émission", ref x, 410);
             kx = 6;
-            RKnob(gt, ref kx, "PUISS.", "14 0A", 0, 255, delegate(int v) { return (v * 200 / 255) + " W"; }, false, false); RKnob(gt, ref kx, "MICRO", "14 0B", 0, 255, Pct, false, false); RKnob(gt, ref kx, "COMP", "14 0E", 0, 255, delegate(int v) { return (v * 10 / 255.0).ToString("0.0"); }, false, false);
+            kPow = RKnob(gt, ref kx, "PUISS.", "14 0A", 0, 255, delegate(int v) { return (v * 200 / 255) + " W"; }, false, false); RKnob(gt, ref kx, "MICRO", "14 0B", 0, 255, Pct, false, false); RKnob(gt, ref kx, "COMP", "14 0E", 0, 255, delegate(int v) { return (v * 10 / 255.0).ToString("0.0"); }, false, false);
             RKnob(gt, ref kx, "DRIVE", "14 14", 0, 255, Pct, false, false); RKnob(gt, ref kx, "MONI", "14 15", 0, 255, Pct, false, false); RKnob(gt, ref kx, "VOX", "14 16", 0, 255, Pct, false, false);
             Toggle(gt, 8, 100, 92, "16 44", "COMP", false); Toggle(gt, 102, 100, 92, "16 45", "MONITEUR", false); Toggle(gt, 196, 100, 92, "16 46", "VOX", false);
             Cycle(gt, 290, 100, 116, "16 47", new string[] { "BK-IN OFF", "SEMI BK-IN", "FULL BK-IN" }, false);
             Cycle(gt, 8, 132, 126, "16 58", new string[] { "SSB LARGE", "SSB MOYEN", "SSB ÉTROIT" }, false);
             Toggle(gt, 138, 132, 100, "1C 02", "XFC", false);
-            Btn pw = Mini(gt, "100 W", 8, 168, 56); pw.Click += delegate { rig.Write(0, "14 0A", 128); }; Btn p50 = Mini(gt, "50 W", 68, 168, 56); p50.Click += delegate { rig.Write(0, "14 0A", 64); }; Btn p10 = Mini(gt, "10 W", 128, 168, 56); p10.Click += delegate { rig.Write(0, "14 0A", 13); }; Btn pm = Mini(gt, "MAX", 188, 168, 56); pm.Click += delegate { rig.Write(0, "14 0A", 255); };
-            Label lp = new Label(); lp.Text = "Préréglages de puissance (0–200 W)"; lp.ForeColor = T.Dim; lp.Font = new Font("Segoe UI", 7.5f); lp.SetBounds(8, 202, 300, 16); gt.Controls.Add(lp);
+            string[] pwN = { "10 W", "50 W", "100 W", "200 W" }; int[] pwW = { 10, 50, 100, 200 };
+            for (int i = 0; i < 4; i++)
+            {
+                int w = pwW[i]; Btn b = Mini(gt, pwN[i], 8 + i * 60, 168, 56); pwBtn[i] = b; kPow.Link(b);
+                b.Click += delegate { if (w <= PowMaxW()) rig.Write(0, "14 0A", w >= 200 ? 255 : (int)Math.Round(w * 255.0 / 200)); };
+            }
+            bPmax = Mini(gt, "P.MAX", 252, 168, 100); bPmax.Tag = "P.MAX"; kPow.Link(bPmax);
+            bPmax.Click += delegate
+            {
+                string v = Prompt.Ask("Puissance maximale autorisée (1 à 200 W) :\nLe potentiomètre PUISS. et les touches de puissance seront limités à cette valeur.", "P.MAX", PowMaxW().ToString());
+                int n; if (v == null || !int.TryParse(v.Trim().TrimEnd('W', 'w').Trim(), out n)) return;
+                Cfg.SetInt("pmax", Math.Max(1, Math.Min(200, n))); ApplyPmax(true);
+            };
+            ApplyPmax(false);
+                        Label lp = new Label(); lp.Text = "Préréglages de puissance (0–200 W)"; lp.ForeColor = T.Dim; lp.Font = new Font("Segoe UI", 7.5f); lp.SetBounds(8, 202, 300, 16); gt.Controls.Add(lp);
 
             // ---- CW
             Group gc = G(host, "CW · Voix", ref x, 400);
@@ -334,15 +348,41 @@ namespace IC7760Link
             tbCw = new TextBox(); tbCw.SetBounds(130, 28, 168, 24); tbCw.BackColor = T.Bg; tbCw.ForeColor = T.Text; tbCw.BorderStyle = BorderStyle.FixedSingle; tbCw.CharacterCasing = CharacterCasing.Upper; gc.Controls.Add(tbCw);
             tbCw.KeyDown += delegate(object s, KeyEventArgs e) { if (e.KeyCode == Keys.Enter) { SendCwText(tbCw.Text); e.SuppressKeyPress = true; } };
             Btn cs = Mini(gc, "ENVOYER", 304, 27, 84); cs.Click += delegate { SendCwText(tbCw.Text); };
-            Btn cx = Mini(gc, "STOP CW", 304, 58, 84); cx.Click += delegate { rig.StopCw(); };
+            Btn cx = Mini(gc, "STOP CW", 304, 58, 84); cx.LockOnRight = false; cx.Click += delegate { rig.StopCw(); };
             string[] mac = { "CQ CQ DE {C} {C} K", "{C} 599 73", "TU DE {C} K", "QRZ? DE {C}" };
-            for (int i = 0; i < 4; i++) { int k = i; Btn b = Mini(gc, "F" + (i + 1), 130 + i * 42, 58, 38); b.Led = false; b.Click += delegate { SendCwText(MacroText(k)); }; b.MouseUp += delegate(object s, MouseEventArgs e) { if (e.Button == MouseButtons.Right) EditMacro(k); }; macroDefault[i] = mac[i]; }
-            Label lc = new Label(); lc.Text = "F1–F4 : messages (clic droit pour modifier) — Entrée envoie le texte"; lc.ForeColor = T.Dim; lc.Font = new Font("Segoe UI", 7.5f); lc.SetBounds(130, 88, 262, 16); gc.Controls.Add(lc);
+            for (int i = 0; i < 4; i++) { int k = i; Btn b = Mini(gc, "F" + (i + 1), 130 + i * 42, 58, 38); b.Led = false; b.LockOnRight = false; b.Click += delegate { SendCwText(MacroText(k)); }; b.MouseUp += delegate(object s, MouseEventArgs e) { if (e.Button == MouseButtons.Right) EditMacro(k); }; macroDefault[i] = mac[i]; }
+            Label lc = new Label(); lc.Text = "F1–F4 : clic droit = modifier"; lc.ForeColor = T.Dim; lc.Font = new Font("Segoe UI", 7.5f); lc.SetBounds(130, 88, 262, 16); gc.Controls.Add(lc);
             Label lv = new Label(); lv.Text = "Mémoires vocales (T1–T8)"; lv.ForeColor = T.Dim; lv.SetBounds(8, 112, 200, 16); gc.Controls.Add(lv);
             for (int i = 1; i <= 8; i++) { int n = i; Btn b = Mini(gc, "T" + i, 8 + ((i - 1) % 4) * 56, 132 + ((i - 1) / 4) * 32, 52); b.Click += delegate { rig.Raw(new byte[] { 0x28, 0x00, (byte)n }); }; }
-            Btn vs = Mini(gc, "STOP", 236, 132, 70); vs.Click += delegate { rig.Raw(new byte[] { 0x28, 0x00, 0x00 }); };
-            Label ld = new Label(); ld.Text = "Indicatif ({C}) :"; ld.ForeColor = T.Dim; ld.SetBounds(236, 168, 90, 18); gc.Controls.Add(ld);
-            TextBox tc = new TextBox(); tc.SetBounds(322, 165, 72, 22); tc.BackColor = T.Bg; tc.ForeColor = T.Text; tc.BorderStyle = BorderStyle.FixedSingle; tc.CharacterCasing = CharacterCasing.Upper; tc.Text = Cfg.Get("call", ""); tc.TextChanged += delegate { Cfg.Set("call", tc.Text); }; gc.Controls.Add(tc);
+            Btn vs = Mini(gc, "STOP", 236, 132, 70); vs.LockOnRight = false; vs.Click += delegate { rig.Raw(new byte[] { 0x28, 0x00, 0x00 }); };
+            Label ld = new Label(); ld.Text = "Votre indicatif :"; ld.ForeColor = T.Dim; ld.SetBounds(236, 164, 150, 18); gc.Controls.Add(ld);
+            TextBox tc = new TextBox(); tc.SetBounds(236, 184, 110, 22); tc.BackColor = T.Bg; tc.ForeColor = T.Text; tc.BorderStyle = BorderStyle.FixedSingle; tc.CharacterCasing = CharacterCasing.Upper; tc.Text = Cfg.Get("call", ""); tc.TextChanged += delegate { Cfg.Set("call", tc.Text); }; gc.Controls.Add(tc); Label lh = new Label(); lh.Text = "remplace {C} dans F1-F4"; lh.ForeColor = T.Dim; lh.Font = new Font("Segoe UI", 7f); lh.SetBounds(236, 207, 160, 14); gc.Controls.Add(lh);
+        }
+        int PowMaxW() { return Math.Max(1, Math.Min(200, Cfg.GetInt("pmax", 200))); }
+        void ApplyPmax(bool clamp)
+        {
+            int m = PowMaxW(); int raw = m >= 200 ? 255 : (int)Math.Round(m * 255.0 / 200);
+            kPow.Limit = raw; bPmax.Text = m >= 200 ? "P.MAX" : "P.MAX " + m + " W"; bPmax.Invalidate();
+            int[] pwW = { 10, 50, 100, 200 }; for (int i = 0; i < 4; i++) pwBtn[i].Enabled = pwW[i] <= m;
+            if (clamp && rig.Link != null && rig.Get(0, "14 0A") > raw) rig.Write(0, "14 0A", raw);
+        }
+        // ---- verrous (clic droit) : memorises dans les reglages
+        readonly Dictionary<Control, string> lockKeys = new Dictionary<Control, string>(); int lockN;
+        void InitLocks()
+        {
+            lockN = 0; Locks.Changed = null; WalkLocks(this);
+            Locks.Changed = delegate(Control c) { string k; if (lockKeys.TryGetValue(c, out k)) { bool v = c is Btn ? ((Btn)c).Locked : ((Knob)c).Locked; Cfg.Set(k, v ? "1" : "0"); Cfg.Save(); } };
+        }
+        void WalkLocks(Control c)
+        {
+            foreach (Control ch in c.Controls)
+            {
+                Btn b = ch as Btn; Knob k = ch as Knob;
+                if (b != null && b.LockOnRight) { string key = "lock." + (lockN++) + "." + (b.Tag as string ?? b.Text); lockKeys[b] = key; if (Cfg.Get(key, "0") == "1") b.Locked = true; }
+                else if (b != null) lockN++;
+                if (k != null) { string key = "lock." + (lockN++) + "." + k.Label; lockKeys[k] = key; if (Cfg.Get(key, "0") == "1") k.Locked = true; }
+                WalkLocks(ch);
+            }
         }
         readonly string[] macroDefault = new string[4];
         string MacroText(int i) { return Cfg.Get("macro" + i, macroDefault[i]).Replace("{C}", Cfg.Get("call", "").Trim()); }
@@ -356,11 +396,11 @@ namespace IC7760Link
         static string PctC(int v) { int p = (v - 128) * 100 / 128; return p.ToString("+0;-0;0") + "%"; }
         void UpdMem() { lbMem.Text = "M" + memCh.ToString("00"); }
 
-        void RKnob(Control parent, ref int x, string label, string key, int min, int max, Func<int, string> fmt, bool center, bool perRx)
+        Knob RKnob(Control parent, ref int x, string label, string key, int min, int max, Func<int, string> fmt, bool center, bool perRx)
         {
             Knob k = new Knob(); k.Label = label; k.Min = min; k.Max = max; k.Fmt = fmt; k.Center = center; k.Location = new Point(x, 22); k.Size = new Size(62, 74); if (center) k.Default = 128;
             k.UserChanged += delegate(int v) { rig.Write(perRx ? Rx : 0, key, v); };
-            parent.Controls.Add(k); links.Add(delegate { k.SetValue(rig.Get(Rx, key)); }); x += 62;
+            parent.Controls.Add(k); links.Add(delegate { k.SetValue(rig.Get(Rx, key)); }); x += 62; return k;
         }
         void Toggle(Control parent, int x, int y, int w, string key, string text, bool perRx)
         {
@@ -560,7 +600,7 @@ namespace IC7760Link
             if (rig.Link != null && !rig.Connected && Environment.TickCount - connStart > 3000) lbStatus.Text = "Aucune réponse du poste : vérifiez le port COM, la vitesse (115200) et l'adresse CI-V (94).";
             if (rig.Link == null) btnConnect.Set(false, "CONNECTER");
             lbClock.Text = DateTime.UtcNow.ToString("HH:mm:ss") + " UTC";
-            Text = "IC-7760 Link " + Version + (rig.Ptt ? "  ●  ÉMISSION" : "") + " — " + (rig.Link != null ? rig.Link.Name : "hors ligne");
+            Text = "IC-7760 Link V" + Version + " @F5PBG 2026" + (rig.Ptt ? "  ●  ÉMISSION" : "") + " — " + (rig.Link != null ? rig.Link.Name : "hors ligne");
             BackColor = rig.Ptt ? Color.FromArgb(40, 8, 8) : T.Bg;
         }
         int connStart = Environment.TickCount;
@@ -733,6 +773,7 @@ namespace IC7760Link
                     case "big": ClientSize = new Size(1900, 1001); break;
                     case "wide": WindowState = FormWindowState.Maximized; break;
                     case "analog": SetAnalog(true); break;
+                    case "lock": kPow.Locked = true; kWidth.Locked = true; bPmax.Locked = true; break; case "unlock": kPow.Locked = false; kWidth.Locked = false; bPmax.Locked = false; break; case "pmax": Cfg.SetInt("pmax", 40); ApplyPmax(false); break; case "pmax0": Cfg.SetInt("pmax", 200); ApplyPmax(false); break;
                     case "theme": { Color[] tb = Theme.Snapshot(); Theme.Set(0, Color.FromArgb(40, 10, 10)); Theme.Set(1, Color.FromArgb(60, 20, 20)); Theme.Set(11, Color.LimeGreen); Theme.Set(12, Color.Magenta); Theme.Set(4, Color.Yellow); foreach (Form fm in Application.OpenForms) Theme.Recolor(fm, Theme.Map(tb, Theme.Snapshot())); } break;
                     case "optshot": { OptionsForm of = new OptionsForm(null, null); of.Show(this); Application.DoEvents(); using (Bitmap bm = new Bitmap(of.ClientSize.Width, of.ClientSize.Height)) { of.DrawToBitmap(bm, new Rectangle(0, 0, bm.Width, bm.Height)); bm.Save("opt.png"); } using (ColorPickForm cp = new ColorPickForm(Color.OrangeRed, "x")) { cp.Show(this); Application.DoEvents(); using (Bitmap bm = new Bitmap(cp.ClientSize.Width, cp.ClientSize.Height)) { cp.DrawToBitmap(bm, new Rectangle(0, 0, bm.Width, bm.Height)); bm.Save("pick.png"); } } using (ConfigForm cf = new ConfigForm("", false)) { cf.Show(this); Application.DoEvents(); using (Bitmap bm = new Bitmap(cf.ClientSize.Width, cf.ClientSize.Height)) { cf.DrawToBitmap(bm, new Rectangle(0, 0, bm.Width, bm.Height)); bm.Save("cfg.png"); } } } break;
                     case "radio": { string dd = RadioDump(); int bf = rig.Get(0, "14 01"); rig.Write(0, "14 01", (bf + 40) % 256); string msg = ApplyRadio(Cfg.Parse(dd)); System.IO.File.WriteAllText("radiodump.txt", dd + "# " + msg + " avant=" + bf + " apres=" + rig.Get(0, "14 01") + "\r\n"); } break;

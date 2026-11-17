@@ -7,6 +7,8 @@ using System.Windows.Forms;
 
 namespace IC7760Link
 {
+    public static class Locks { public static Action<Control> Changed; }
+
     public static class T
     {
         // échelle de la fenêtre (1 = taille de conception) et résolution de l'écran
@@ -24,7 +26,7 @@ namespace IC7760Link
         }
         public static Color Bg = Color.FromArgb(12, 15, 21), Panel = Color.FromArgb(22, 27, 36), Panel2 = Color.FromArgb(30, 37, 49), Edge = Color.FromArgb(56, 68, 86);
         public static Color Text = Color.FromArgb(222, 230, 238), Dim = Color.FromArgb(128, 145, 163), Amber = Color.FromArgb(255, 178, 20), Cyan = Color.FromArgb(40, 205, 235);
-        public static Color Red = Color.FromArgb(255, 66, 58), Green = Color.FromArgb(70, 224, 112), Blue = Color.FromArgb(70, 150, 255);
+        public static Color Lock = Color.FromArgb(235, 30, 30), Red = Color.FromArgb(255, 66, 58), Green = Color.FromArgb(70, 224, 112), Blue = Color.FromArgb(70, 150, 255);
         public static Color FreqMain = Color.FromArgb(255, 226, 150), FreqSub = Color.FromArgb(160, 205, 255), FreqBg = Color.FromArgb(10, 13, 18);
         public static Color Mix(Color a, Color b, double t) { return Color.FromArgb((int)(a.R + (b.R - a.R) * t), (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t)); }
         public static GraphicsPath Round(RectangleF r, float rad)
@@ -43,8 +45,11 @@ namespace IC7760Link
         public void Set(bool on, string text) { if (on != Checked || (text != null && text != Text)) { Checked = on; if (text != null) Text = text; Invalidate(); } }
         protected override void OnMouseEnter(EventArgs e) { hot = true; Invalidate(); base.OnMouseEnter(e); }
         protected override void OnMouseLeave(EventArgs e) { hot = false; down = false; Invalidate(); base.OnMouseLeave(e); }
-        protected override void OnMouseDown(MouseEventArgs e) { if (e.Button == MouseButtons.Left) { down = true; Invalidate(); } base.OnMouseDown(e); }
-        protected override void OnMouseUp(MouseEventArgs e) { down = false; Invalidate(); base.OnMouseUp(e); }
+        bool locked; public bool Slaved; public bool LockOnRight = true; public bool Locked { get { return locked; } set { if (locked != value) { locked = value; Invalidate(); if (Locks.Changed != null) Locks.Changed(this); } } } public bool IsLocked { get { return locked || Slaved; } }
+        MouseButtons lastBtn; protected override void OnMouseDown(MouseEventArgs e) { lastBtn = e.Button; if (e.Button == MouseButtons.Left) { down = true; Invalidate(); } base.OnMouseDown(e); }
+        protected override void OnMouseUp(MouseEventArgs e) { down = false; if (e.Button == MouseButtons.Right && LockOnRight) Locked = !Locked; Invalidate(); base.OnMouseUp(e); }
+        protected override void OnClick(EventArgs e) { if (lastBtn == MouseButtons.Right && LockOnRight) return; if (IsLocked) return; base.OnClick(e); }
+        protected override void OnMouseClick(MouseEventArgs e) { if (e.Button == MouseButtons.Right && LockOnRight) return; if (IsLocked && e.Button == MouseButtons.Left) return; base.OnMouseClick(e); }
         protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); Invalidate(); }
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -54,22 +59,22 @@ namespace IC7760Link
             Color top = Checked ? Color.FromArgb(58, 66, 82) : Color.FromArgb(46, 55, 70), bot = Checked ? Color.FromArgb(34, 40, 52) : Color.FromArgb(28, 34, 45);
             if (hot) { top = ControlPaint.Light(top, 0.15f); bot = ControlPaint.Light(bot, 0.1f); }
             if (down) { Color t = top; top = bot; bot = t; }
-            if (!Enabled) { top = Color.FromArgb(28, 33, 42); bot = top; }
+            if (!Enabled) { top = Color.FromArgb(20, 24, 31); bot = top; }
             using (GraphicsPath p = T.Round(r, 5))
             {
                 using (LinearGradientBrush b = new LinearGradientBrush(r, top, bot, 90f)) g.FillPath(b, p);
-                using (Pen pen = new Pen(Checked ? Accent : T.Edge, Checked ? 1.4f : 1f)) g.DrawPath(pen, p);
+                using (Pen pen = new Pen(IsLocked ? T.Lock : (Checked ? Accent : T.Edge), IsLocked ? 2f : (Checked ? 1.4f : 1f))) g.DrawPath(pen, p);
             }
             float tx = 0;
             if (Led)
             {
                 float d = 6; float lx = 8, ly = Height / 2f - d / 2;
-                using (Brush b = new SolidBrush(Checked ? Accent : Color.FromArgb(60, 68, 80))) g.FillEllipse(b, lx, ly, d, d);
+                using (Brush b = new SolidBrush(IsLocked ? T.Lock : (Checked ? Accent : Color.FromArgb(60, 68, 80)))) g.FillEllipse(b, lx, ly, d, d);
                 if (Checked) using (Brush b = new SolidBrush(Color.FromArgb(60, Accent))) g.FillEllipse(b, lx - 3, ly - 3, d + 6, d + 6);
                 tx = 8;
             }
             StringFormat sf = new StringFormat(); sf.Alignment = StringAlignment.Center; sf.LineAlignment = StringAlignment.Center; sf.Trimming = StringTrimming.EllipsisCharacter; sf.FormatFlags = StringFormatFlags.NoWrap;
-            using (Brush b = new SolidBrush(!Enabled ? T.Dim : (Checked ? T.Text : Color.FromArgb(190, 202, 216))))
+            using (Brush b = new SolidBrush(!Enabled ? Color.FromArgb(62, 70, 82) : (IsLocked ? T.Lock : (Checked ? T.Text : Color.FromArgb(190, 202, 216)))))
                 g.DrawString(Text, f, b, new RectangleF(tx, 0, Width - tx, Height), sf);
         }
     }
@@ -83,16 +88,20 @@ namespace IC7760Link
         int dragY, dragV; Font fl { get { return T.Fn("Segoe UI", 7.5f); } } Font fv { get { return T.Fn("Segoe UI Semibold", 8f); } }
         public Knob() { SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true); Size = new Size(62, 74); Cursor = Cursors.SizeNS; }
         public void SetValue(int v) { if (Dragging) return; if (v < Min) v = Min; if (v > Max) v = Max; if (v != Value) { Value = v; Invalidate(); } }
-        void User(int v) { if (v < Min) v = Min; if (v > Max) v = Max; if (v == Value) return; Value = v; Invalidate(); if (UserChanged != null) UserChanged(v); }
-        protected override void OnMouseDown(MouseEventArgs e) { Focus(); if (e.Button == MouseButtons.Left) { Dragging = true; dragY = e.Y; dragV = Value; Capture = true; } base.OnMouseDown(e); }
+        void User(int v) { if (v < Min) v = Min; if (v > Max) v = Max; if (v > Limit) v = Limit; if (v == Value) return; Value = v; Invalidate(); if (UserChanged != null) UserChanged(v); }
+        bool locked; readonly List<Btn> linked = new List<Btn>(); public int Limit = int.MaxValue;
+        public bool Locked { get { return locked; } set { if (locked != value) { locked = value; foreach (Btn b in linked) { b.Slaved = value; b.Invalidate(); } Invalidate(); if (Locks.Changed != null) Locks.Changed(this); } } }
+        public void Link(Btn b) { linked.Add(b); b.Slaved = locked; }
+        protected override void OnMouseDown(MouseEventArgs e) { Focus(); if (e.Button == MouseButtons.Right) { Locked = !Locked; } else if (e.Button == MouseButtons.Left && !Locked) { Dragging = true; dragY = e.Y; dragV = Value; Capture = true; } base.OnMouseDown(e); }
         protected override void OnMouseMove(MouseEventArgs e)
         {
             if (Dragging) { double sens = (Control.ModifierKeys & Keys.Shift) != 0 ? 0.25 : 1.0; User(dragV + (int)((dragY - e.Y) * sens * (Max - Min) / 150.0)); }
             base.OnMouseMove(e);
         }
         protected override void OnMouseUp(MouseEventArgs e) { Dragging = false; Capture = false; base.OnMouseUp(e); }
-        protected override void OnMouseDoubleClick(MouseEventArgs e) { if (Default >= 0) User(Default); else if (Center) User((Min + Max) / 2); base.OnMouseDoubleClick(e); }
-        protected override void OnMouseWheel(MouseEventArgs e) { int s = Math.Max(1, (Max - Min) / 64) * ((Control.ModifierKeys & Keys.Shift) != 0 ? 1 : 3); User(Value + (e.Delta > 0 ? s : -s)); base.OnMouseWheel(e); }
+        protected override void OnMouseDoubleClick(MouseEventArgs e) { if (Locked) return; if (Default >= 0) User(Default); else if (Center) User((Min + Max) / 2); base.OnMouseDoubleClick(e); }
+        public static int WheelPct = 2;
+        protected override void OnMouseWheel(MouseEventArgs e) { if (Locked) return; int s = Math.Max(1, (int)Math.Round((Max - Min) * WheelPct / 100.0)); if ((Control.ModifierKeys & Keys.Shift) != 0) s = Math.Max(1, s / 3); s *= Math.Max(1, Math.Abs(e.Delta) / 120); User(Value + (e.Delta > 0 ? s : -s)); base.OnMouseWheel(e); }
         protected override void OnPaint(PaintEventArgs e)
         {
             Graphics g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
@@ -103,7 +112,7 @@ namespace IC7760Link
             RectangleF ar = new RectangleF(r.X + 1.5f * k, r.Y + 1.5f * k, d - 3 * k, d - 3 * k);
             using (Pen p = new Pen(Color.FromArgb(52, 62, 78), 4f * k)) { p.StartCap = LineCap.Round; p.EndCap = LineCap.Round; g.DrawArc(p, ar, 135, 270); }
             double t = Max > Min ? (Value - Min) / (double)(Max - Min) : 0;
-            using (Pen p = new Pen(Accent, 4f * k))
+            using (Pen p = new Pen(Locked ? T.Lock : Accent, 4f * k))
             {
                 p.StartCap = LineCap.Round; p.EndCap = LineCap.Round;
                 if (Center) { float a0 = 270, sw = (float)((t - 0.5) * 270); if (Math.Abs(sw) > 0.5) g.DrawArc(p, ar, a0, sw); }
@@ -113,7 +122,7 @@ namespace IC7760Link
             using (Pen p = new Pen(T.Text, 2f * k)) { p.EndCap = LineCap.Round; g.DrawLine(p, cx + (float)Math.Cos(ang) * (rr * 0.3f), cy + (float)Math.Sin(ang) * (rr * 0.3f), cx + (float)Math.Cos(ang) * rr, cy + (float)Math.Sin(ang) * rr); }
             StringFormat sf = new StringFormat(); sf.Alignment = StringAlignment.Center;
             string vs = Fmt != null ? Fmt(Value) : Value.ToString();
-            using (Brush b = new SolidBrush(T.Text)) g.DrawString(vs, fv, b, new RectangleF(0, Height - 28 * k, Width, 14 * k), sf);
+            using (Brush b = new SolidBrush(Locked ? T.Lock : T.Text)) g.DrawString(vs, fv, b, new RectangleF(0, Height - 28 * k, Width, 14 * k), sf);
             using (Brush b = new SolidBrush(T.Dim)) g.DrawString(Label, fl, b, new RectangleF(0, Height - 15 * k, Width, 14 * k), sf);
         }
     }
@@ -123,13 +132,14 @@ namespace IC7760Link
     {
         public double Max = 241, Hot = 0.5; public string Title = ""; public string[] TickText; public double[] TickPos; public Func<int, string> Fmt;
         public Color Cool = T.Green, Warm = T.Amber, Over = T.Red; public double OverAt = 2;
-        double val, peak; int peakTick;
+        double val, peak, avg; int peakTick;
+        public double AvgFrac { get { return avg / Max; } } public double PeakFrac { get { return peak / Max; } } public int AvgRaw { get { return (int)Math.Round(avg); } }
         Font f { get { return T.Fn("Segoe UI", 7f); } } Font ft { get { return T.Fn("Segoe UI Semibold", 8f); } }
         public MeterBar() { SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true); Size = new Size(240, 30); }
         public void SetValue(int v)
         {
             double nv = Math.Max(0, Math.Min(Max, v)); int tick = Environment.TickCount;
-            if (nv >= peak) { peak = nv; peakTick = tick; } else if (tick - peakTick > 900) peak = Math.Max(nv, peak - Max * 0.02);
+            avg += (nv - avg) * 0.35; if (nv >= peak) { peak = nv; peakTick = tick; } else if (tick - peakTick > 900) peak = Math.Max(nv, peak - Max * 0.02);
             if (Math.Abs(nv - val) > 0.01 || peak != nv) { val = nv; Invalidate(); }
             lastRaw = v;
         }
@@ -247,11 +257,12 @@ namespace IC7760Link
             string[] un = { "A", "W", "dB", "V" }; float[] ur = { 905 + 56, 905 - 56, 735 + 56, 640 - 56 };
             for (int i = 0; i < 4; i++) { PointF p = P(ur[i], TH + 0.05); Txt(g, un[i], f30, i == 2 ? cyan : white, p.X, p.Y, true); }
             // aiguille
-            double f = cur != null ? Math.Max(0, Math.Min(1, cur.Frac)) : 0; double a = -TH + 2 * TH * f;
+            double f = cur != null ? Math.Max(0, Math.Min(1, tx ? cur.AvgFrac : cur.Frac)) : 0; double a = -TH + 2 * TH * f;
+            if (tx && cur != null) { double pk = Math.Max(0, Math.Min(1, cur.PeakFrac)); double pa = -TH + 2 * TH * pk; if (pk > f + 0.01) using (Pen p = new Pen(red, 9)) g.DrawLine(p, P(640, pa), P(1010, pa)); }
             using (Pen p = new Pen(Color.White, 15)) g.DrawLine(p, P(640, a), P(1010, a));
             // bas : TX, valeur, mode, filtre
             if (tx) { using (Pen p = new Pen(red, 5)) g.DrawRectangle(p, 22, 640, 150, 80); Txt(g, "TX", f56, red, 97, 680, true); }
-            string val = cur != null && cur.Fmt != null ? cur.Fmt(cur.Raw) : "";
+            string val = cur != null && cur.Fmt != null ? cur.Fmt(tx ? cur.AvgRaw : cur.Raw) : "";
             Txt(g, val.Replace(" ", ""), f56, white, 190, 646, false);
             RoundBox(g, 560, 650, 190, 70, Color.FromArgb(60, 140, 235), Color.FromArgb(40, 110, 205)); Txt(g, Mode[idx], f56, white, 655, 686, true);
             RoundBox(g, 765, 650, 190, 70, gray, Color.FromArgb(40, 44, 44)); Txt(g, Fil[idx], f56, white, 860, 686, true);
@@ -313,7 +324,7 @@ namespace IC7760Link
                 char c = s[i]; if (c != ' ' && c != '0') lead = false; else if (c == '0' && i >= 2 && lead) lead = false;
                 bool dim = c == ' ' || (c == '0' && lead);
                 if (i == hover) using (Brush hb = new SolidBrush(Color.FromArgb(40, 255, 255, 255))) g.FillRectangle(hb, cell[i]);
-                using (Brush b = new SolidBrush(dim ? Color.FromArgb(50, 60, 74) : on))
+                if (!dim) using (Brush b = new SolidBrush(dim ? Color.FromArgb(50, 60, 74) : on))
                 { StringFormat sf = new StringFormat(); sf.Alignment = StringAlignment.Center; sf.LineAlignment = StringAlignment.Center; g.DrawString(c == ' ' ? "8" : c.ToString(), fd, b, new RectangleF(cell[i].X - 4, cell[i].Y, cell[i].Width + 8, cell[i].Height), sf); }
                 if (i == 1 || i == 4)
                 { int dx = cell[i].Right + (int)(fd.Size * 0.12f); using (Brush b = new SolidBrush(on)) g.FillRectangle(b, dx, cell[i].Bottom - (int)(fd.Size * 0.14f), Math.Max(3, (int)(fd.Size * 0.08f)), Math.Max(3, (int)(fd.Size * 0.08f))); }

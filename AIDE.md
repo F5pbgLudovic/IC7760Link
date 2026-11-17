@@ -131,6 +131,15 @@ Sans ouvrir le logiciel : `Diagnostic.bat` (ou `IC7760Link.exe --diag=COM5,11520
 | `--diag=COM5,115200,94` | Enregistre 12 s de trames CI-V dans `diagnostic-ci-v.txt`. |
 | `--shot=image.png,ms,actions` | Capture d'écran automatique (développement). |
 
+### Verrouiller un réglage (clic droit)
+Un clic droit sur un bouton ou un potentiomètre le **verrouille** : il devient rouge et ne réagit plus (clic, glisser, molette). Nouveau clic droit = déverrouillage. Un potentiomètre verrouillé verrouille aussi ses touches associées (préréglages de largeur de filtre, de puissance, RIT 0, AUTO du niveau) ; verrouiller une touche ne verrouille pas le potentiomètre. Les verrous sont mémorisés et retrouvés au redémarrage. La couleur se change dans Options > Couleurs de l'interface > Verrouillage. (VITESSE, MOY, PICS et F1-F4 gardent leur clic droit habituel.)
+
+### Vitesse de la molette sur les potentiomètres
+Options (⚙) > **Réglage Molette souris** : « Vitesse Potentiomètre » règle de 1 à 10 % de la course par cran de molette (2 % par défaut). Maj + molette = pas plus fin.
+
+### Limiter la puissance (P.MAX)
+Dans le cadre Émission, la touche **P.MAX** demande une puissance maximale (1 à 200 W). Le potentiomètre PUISS. ne peut plus la dépasser et les préréglages supérieurs (10 / 50 / 100 / 200 W) sont grisés. Si le poste émet déjà au-delà, il est ramené à la limite.
+
 ## 12. À savoir
 
 - Le logiciel a été développé contre un **poste virtuel** ; premiers essais sur un IC-7760 réel : connexion, affichage de la cascade et du S-mètre confirmés. Le reste (écriture des réglages, émission) reste à valider poste par poste — **testez l'émission sur charge fictive** et à faible puissance.

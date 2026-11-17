@@ -46,7 +46,7 @@ namespace IC7760Link
         readonly Dictionary<string, int> coalesce = new Dictionary<string, int>();
         readonly Dictionary<string, long> holdoff = new Dictionary<string, long>();
         readonly List<byte[]> immediate = new List<byte[]>();
-        readonly System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
+        readonly System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew(); long tPo, tPtt;
         Thread poll; volatile bool run;
         readonly List<byte>[] scopeAsm = { new List<byte>(), new List<byte>() };
         readonly ScopeFrame[] scopeHead = new ScopeFrame[2];
@@ -242,7 +242,9 @@ namespace IC7760Link
                     {
                         tMeter = now;
                         Read(0, "15 02"); Read(1, "15 02");
-                        if (Ptt) { if (now - tTx >= 120) { tTx = now; Read(0, "15 11"); Read(0, "15 12"); Read(0, "15 13"); Read(0, "15 14"); } }
+                        if (now - tPo >= (Ptt ? 90 : 300)) { tPo = now; Read(0, "15 11"); }
+                        if (now - tPtt >= 400) { tPtt = now; Read(0, "1C 00"); }
+                        if (Ptt) { if (now - tTx >= 120) { tTx = now; Read(0, "15 12"); Read(0, "15 13"); Read(0, "15 14"); } }
                         else if (now - tTx >= 1000) { tTx = now; Read(0, "15 15"); Read(0, "15 16"); Read(0, "15 07"); }
                     }
                     if (now - tMid >= 120)
@@ -413,7 +415,7 @@ namespace IC7760Link
             if (v <= 120) return "S" + (int)Math.Round(v / 120.0 * 9);
             return "S9+" + (int)Math.Round((v - 120) / 121.0 * 60) + "dB";
         }
-        public static double ToWatts(int v) { return v / 143.0 * 100.0; }
+        public static double ToWatts(int v) { return v <= 143 ? v / 143.0 * 100.0 : 100.0 + (v - 143) / 69.0 * 100.0; }
         public static double ToSwr(int v)
         {
             if (v <= 48) return 1.0 + v / 48.0 * 0.5;
