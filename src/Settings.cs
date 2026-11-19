@@ -43,9 +43,20 @@ namespace IC7760Link
             }
             catch { }
         }
-        // texte de configuration du logiciel (les reglages du poste "radio.*" sont releves a part, en direct)
-        public static string Dump() { StringBuilder sb = new StringBuilder(); List<string> k = new List<string>(d.Keys); k.Sort(); foreach (string s in k) if (!s.StartsWith("radio.")) sb.AppendLine(s + "=" + d[s]); return sb.ToString(); }
-        public static Dictionary<string, string> Parse(string text)
+        // nature d'une clé : 0 = application, 1 = réglages affichés du poste (radio.), 2 = menu interne du poste (menu.), 3 = mémoires de fréquences du poste (memch.)
+        public static int Kind(string k) { return k.StartsWith("radio.") ? 1 : k.StartsWith("menu.") ? 2 : k.StartsWith("memch.") ? 3 : 0; }
+        // texte de configuration du logiciel (les reglages du poste sont releves a part, en direct)
+        public static string Dump() { StringBuilder sb = new StringBuilder(); List<string> k = new List<string>(d.Keys); k.Sort(); foreach (string s in k) if (Kind(s) == 0) sb.AppendLine(s + "=" + d[s]); return sb.ToString(); }
+        // import partiel : sel[0] = application, [1] = réglages affichés du poste, [2] = menu interne, [3] = mémoires de fréquences
+        public static int ImportParts(string text, bool[] sel)
+        {
+            Dictionary<string, string> n = Parse(text); int c = 0;
+            foreach (string s in new List<string>(d.Keys)) if (sel[Kind(s)]) d.Remove(s);
+            bool[] has = new bool[4];
+            foreach (KeyValuePair<string, string> kv in n) { int k = Kind(kv.Key); if (!sel[k]) continue; d[kv.Key] = kv.Value; c++; has[k] = true; }
+            if (has[1]) d["radio.pending"] = "1"; if (has[2]) d["menu.pending"] = "1"; if (has[3]) d["memch.pending"] = "1";
+            Save(); return c;
+        }        public static Dictionary<string, string> Parse(string text)
         {
             Dictionary<string, string> n = new Dictionary<string, string>();
             foreach (string raw in text.Replace("\r", "").Split('\n')) { string line = raw.Trim(); if (line.Length == 0 || line.StartsWith("#") || line.StartsWith(";")) continue; int i = line.IndexOf('='); if (i > 0) n[line.Substring(0, i).Trim()] = line.Substring(i + 1); }

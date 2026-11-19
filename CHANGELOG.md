@@ -2,6 +2,11 @@
 
 Format : une section par version, la plus récente en haut. Dates = 2026.
 
+## 2.9 — 19 novembre
+- Export complet : application + réglages affichés du poste + menu interne de l'IC-7760 (232 entrées SET numériques lues sur le poste). Import avec cases à cocher (application / réglages du poste / menu IC-7760). Mémoires de fréquences du poste (canaux 1-99, bords de scan) exportées et réimportables (case dédiée, décochée par défaut). Autotest : lecture et réécriture du menu et des mémoires.
+- Nouveau : AIDE-EN.md (guide en anglais) ; README et LISEZMOI mis à jour.
+- Correction : plantage (« formulaire déjà visible ») en rouvrant Options.
+
 ## 2.8 — 17 novembre (inclut les changements de la 2.7, non publiée)
 - Titre de la fenêtre : « IC-7760 Link V2.8 @F5PBG 2026 ».
 - **Verrous** : un clic droit sur un bouton ou un potentiomètre le verrouille (rouge). Un potentiomètre verrouillé bloque aussi ses touches associées (préréglages de largeur de filtre, de puissance, RIT 0, AUTO du niveau) ; une touche verrouillée ne verrouille pas le potentiomètre. Les verrous sont mémorisés et rétablis au redémarrage. Couleur réglable : Options > Couleurs de l'interface > Verrouillage.

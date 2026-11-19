@@ -15,3 +15,10 @@ CHAT.md
 REPRISE.md
 _ Info pour moi/
 /*.png
+transcription/
+Info pour moi/
+tmp_build/
+st*.txt
+dist/AIDE.md
+dist/AIDE-EN.md
+dist/CHANGELOG.md

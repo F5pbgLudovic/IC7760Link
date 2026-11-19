@@ -6,21 +6,24 @@ using System.Windows.Forms;
 
 namespace IC7760Link
 {
-    // Export / import de toute la configuration de l'interface et des réglages du poste
+    // Export / import de toute la configuration de l'interface, des réglages du poste et du menu interne de l'IC-7760
     public class ConfigForm : Form
     {
-        public bool Imported; readonly string radioText; readonly bool connected;
-        public ConfigForm(string radioText, bool connected)
+        public bool Imported; readonly string radioText; readonly bool connected; readonly Rig rig; readonly Action applyNow;
+        readonly Label status = new Label(); readonly Button bExp, bImp, bCancel; bool busy, cancelReq;
+        public ConfigForm(string radioText, bool connected, Rig rig, Action applyNow)
         {
-            this.radioText = radioText; this.connected = connected;
-            Text = "Export / import"; BackColor = T.Bg; ForeColor = T.Text; ClientSize = new Size(380, 150); StartPosition = FormStartPosition.CenterParent; Font = new Font("Segoe UI", 9f);
+            this.radioText = radioText; this.connected = connected; this.rig = rig; this.applyNow = applyNow;
+            Text = "Export / import"; BackColor = T.Bg; ForeColor = T.Text; ClientSize = new Size(400, 190); StartPosition = FormStartPosition.CenterParent; Font = new Font("Segoe UI", 9f);
             FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; MinimizeBox = false; ShowInTaskbar = false;
-            Label l = new Label(); l.SetBounds(12, 10, 356, 54); Controls.Add(l);
-            l.Text = "Exporter : enregistre la configuration du logiciel" + (connected ? " et les réglages du poste" : " (poste non connecté : réglages du poste non inclus)") + " dans un fichier.\nImporter : restaure un fichier (le logiciel redémarre).";
-            Button b1 = MkBtn("Exporter…", 12, 80, 112); b1.Click += delegate { Export(); };
-            Button b2 = MkBtn("Importer…", 134, 80, 112); b2.Click += delegate { Open(); };
-            Button b3 = MkBtn("Annuler", 256, 80, 112); b3.Click += delegate { Close(); };
-            CancelButton = b3;
+            Label l = new Label(); l.SetBounds(12, 10, 376, 74); Controls.Add(l);
+            l.Text = "Exporter : enregistre dans un fichier tous les réglages de l'application (interface, couleurs, verrous…)" + (connected ? ", les réglages affichés du poste et son menu interne (SET)." : ". Poste non connecté : réglages et menu du poste non inclus.") + "\nImporter : choisissez par cases à cocher ce qui est restauré.";
+            status.SetBounds(12, 90, 376, 20); status.ForeColor = T.Cyan; Controls.Add(status);
+            bExp = MkBtn("Exporter…", 12, 122, 120); bExp.Click += delegate { Export(); };
+            bImp = MkBtn("Importer…", 142, 122, 120); bImp.Click += delegate { Open(); };
+            bCancel = MkBtn("Annuler", 272, 122, 116); bCancel.Click += delegate { if (busy) cancelReq = true; else Close(); };
+            CancelButton = bCancel;
+            FormClosing += delegate(object s, FormClosingEventArgs e) { if (busy) { cancelReq = true; e.Cancel = true; } };
         }
         Button MkBtn(string t, int x, int y, int w)
         {
@@ -28,24 +31,74 @@ namespace IC7760Link
         }
         void Export()
         {
-            string txt = Cfg.Dump().Replace("\r\n", "\n");
-            txt += "\n# ---------- Réglages du poste " + (connected && radioText.Length > 0 ? "(relevés en direct) ----------\n" + radioText : "----------\n# Poste non connecté : réglages du poste non inclus.\n");
+            string file;
             using (SaveFileDialog d = new SaveFileDialog())
             {
                 d.Filter = "Configuration IC-7760 Link (*.ini)|*.ini|Tous les fichiers|*.*"; d.FileName = "IC7760Link-config-" + DateTime.Now.ToString("yyyy-MM-dd") + ".ini";
-                if (d.ShowDialog(this) == DialogResult.OK) { try { System.IO.File.WriteAllText(d.FileName, txt.Replace("\n", "\r\n"), Encoding.UTF8); MessageBox.Show(this, "Configuration exportée :\n" + d.FileName, "Export"); Close(); } catch (Exception ex) { MessageBox.Show(this, ex.Message, "Erreur"); } }
+                if (d.ShowDialog(this) != DialogResult.OK) return; file = d.FileName;
             }
+            string txt = "# ---------- Application (interface, couleurs, verrous, scope…) ----------\n" + Cfg.Dump().Replace("\r\n", "\n");
+            int nMenu = 0, nMem = 0; bool partial = false;
+            if (connected && radioText.Length > 0)
+            {
+                txt += "\n# ---------- Réglages affichés du poste (relevés en direct) ----------\n" + radioText.Replace("\r\n", "\n");
+                busy = true; cancelReq = false; bExp.Enabled = false; bImp.Enabled = false; bCancel.Text = "Arrêter";
+                List<string> menu = rig.ReadMenu(delegate(int done, int total) { status.Text = "Lecture du menu du poste : " + done + " / " + total; return !cancelReq; }, delegate { Application.DoEvents(); });
+                partial = cancelReq; nMenu = menu.Count;
+                txt += "\n# ---------- Menu interne de l'IC-7760 (SET) ----------\n" + string.Join("\n", menu.ToArray()) + "\n";
+                bool partialMem = false; List<string> mem = new List<string>();
+                if (!cancelReq) { mem = rig.ReadMemories(delegate(int done, int total) { status.Text = "Lecture des mémoires du poste : canal " + done + " / " + total; return !cancelReq; }, delegate { Application.DoEvents(); }); partialMem = cancelReq; }
+                busy = false; bExp.Enabled = true; bImp.Enabled = true; bCancel.Text = "Annuler"; nMem = mem.Count; partial = partial || partialMem;
+                txt += "\n# ---------- Mémoires de fréquences de l'IC-7760 (1A 00, canaux 1-99 et bords de scan P1/P2 = 100/101) ----------\n" + string.Join("\n", mem.ToArray()) + "\n";
+            }
+            else txt += "\n# Poste non connecté : réglages du poste et menu interne non inclus.\n";
+            status.Text = "";
+            try
+            {
+                System.IO.File.WriteAllText(file, txt.Replace("\n", "\r\n"), Encoding.UTF8);
+                MessageBox.Show(this, "Configuration exportée :\n" + file + (connected ? "\n\nMenu interne du poste : " + nMenu + " réglages. Mémoires de fréquences : " + nMem + " canaux." + (partial ? "\nLecture interrompue : export incomplet." : "") : ""), "Export"); Close();
+            }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Erreur"); }
         }
         void Open()
         {
+            string txt;
             using (OpenFileDialog d = new OpenFileDialog())
             {
                 d.Filter = "Configuration IC-7760 Link (*.ini)|*.ini|Tous les fichiers|*.*";
                 if (d.ShowDialog(this) != DialogResult.OK) return;
-                string txt; try { txt = System.IO.File.ReadAllText(d.FileName, Encoding.UTF8); } catch (Exception ex) { MessageBox.Show(this, ex.Message, "Erreur"); return; }
-                if (MessageBox.Show(this, "Remplacer toute la configuration par ce fichier et redémarrer le logiciel ?\nLes réglages du poste (s'il y en a dans le fichier) seront renvoyés au poste dès la connexion.", "Importer", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
-                if (Cfg.Import(txt) == 0) { MessageBox.Show(this, "Aucun réglage valide dans ce fichier (lignes clé=valeur attendues).", "Importer"); return; }
-                Imported = true; DialogResult = DialogResult.OK; Close();
+                try { txt = System.IO.File.ReadAllText(d.FileName, Encoding.UTF8); } catch (Exception ex) { MessageBox.Show(this, ex.Message, "Erreur"); return; }
+            }
+            Dictionary<string, string> kv = Cfg.Parse(txt); bool hApp = false, hRadio = false, hMenu = false, hMem = false; int nMenu = 0, nMem = 0;
+            foreach (string k in kv.Keys) { if (k.StartsWith("menu.")) { hMenu = true; nMenu++; } else if (k.StartsWith("memch.")) { hMem = true; nMem++; } else if (k.StartsWith("radio.")) hRadio = true; else hApp = true; }
+            if (!hApp && !hRadio && !hMenu && !hMem) { MessageBox.Show(this, "Aucun réglage valide dans ce fichier (lignes clé=valeur attendues).", "Importer"); return; }
+            bool[] sel;
+            if (!AskParts(hApp, hRadio, hMenu, nMenu, hMem, nMem, out sel)) return;
+            Cfg.ImportParts(txt, sel);
+            if (sel[0]) { Imported = true; DialogResult = DialogResult.OK; Close(); return; }
+            if (applyNow != null) applyNow();
+            MessageBox.Show(this, connected ? "Réglages renvoyés au poste (quelques secondes pour le menu complet)." : "Poste non connecté : les réglages seront envoyés dès la connexion.", "Importer"); Close();
+        }
+        bool AskParts(bool hApp, bool hRadio, bool hMenu, int nMenu, bool hMem, int nMem, out bool[] sel)
+        {
+            sel = new bool[4];
+            using (Form f = new Form())
+            {
+                f.Text = "Importer — que restaurer ?"; f.BackColor = T.Bg; f.ForeColor = T.Text; f.Font = Font; f.ClientSize = new Size(470, 262); f.StartPosition = FormStartPosition.CenterParent;
+                f.FormBorderStyle = FormBorderStyle.FixedDialog; f.MaximizeBox = false; f.MinimizeBox = false; f.ShowInTaskbar = false;
+                CheckBox c1 = new CheckBox(), c2 = new CheckBox(), c3 = new CheckBox(), c4 = new CheckBox();
+                c1.Text = "Réglages de l'application (interface, couleurs, verrous, scope, messages CW…) — le logiciel redémarre"; c1.Enabled = hApp; c1.Checked = hApp;
+                c2.Text = "Réglages affichés du poste (fréquences, modes, filtres, potentiomètres, boutons)"; c2.Enabled = hRadio; c2.Checked = hRadio;
+                c3.Text = "Menu interne de l'IC-7760 (SET)" + (hMenu ? " — " + nMenu + " réglages" : " — absent du fichier"); c3.Enabled = hMenu; c3.Checked = hMenu;
+                c4.Text = "Mémoires de fréquences du poste (canaux 1-99, bords de scan)" + (hMem ? " — " + nMem + " canaux, écrase les canaux du fichier" : " — absentes du fichier"); c4.Enabled = hMem; c4.Checked = false;
+                int y = 14; foreach (CheckBox c in new CheckBox[] { c1, c2, c3, c4 }) { c.SetBounds(14, y, 444, 38); c.ForeColor = c.Enabled ? T.Text : T.Dim; f.Controls.Add(c); y += 44; }
+                Label n = new Label(); n.SetBounds(14, 194, 444, 18); n.ForeColor = T.Dim; n.Text = "Les réglages du poste sont envoyés au poste connecté (dès la connexion sinon)."; f.Controls.Add(n);
+                Button ok = new Button(), no = new Button();
+                foreach (Button b in new Button[] { ok, no }) { b.FlatStyle = FlatStyle.Flat; b.BackColor = T.Panel2; b.ForeColor = T.Text; b.FlatAppearance.BorderColor = T.Edge; f.Controls.Add(b); }
+                ok.Text = "Importer"; ok.SetBounds(244, 220, 110, 32); ok.DialogResult = DialogResult.OK; no.Text = "Annuler"; no.SetBounds(362, 220, 96, 32); no.DialogResult = DialogResult.Cancel;
+                f.AcceptButton = ok; f.CancelButton = no;
+                if (f.ShowDialog(this) != DialogResult.OK) return false;
+                sel[0] = c1.Checked; sel[1] = c2.Checked; sel[2] = c3.Checked; sel[3] = c4.Checked; return sel[0] || sel[1] || sel[2] || sel[3];
             }
         }
     }

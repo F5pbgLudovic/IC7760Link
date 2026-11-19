@@ -209,7 +209,15 @@ namespace IC7760Link
                 case 0x17: { cwUntil = clock.ElapsedMilliseconds + (n - 1) * 90 + 200; ptt = true; Ok(); return; }
                 case 0x15: Meters(p, rx, pref); return;
                 case 0x1C: Cmd1C(p); return;
-                case 0x1A: if (n >= 2 && p[1] == 0x03) { Width(rx, pref, p); return; } break;
+                case 0x1A:
+                    if (n >= 4 && p[1] == 0x00)
+                    {
+                        int ch = Civ.Bcd(p[2]) * 100 + Civ.Bcd(p[3]);
+                        if (n == 4) { byte[] m; if (mems.TryGetValue(ch, out m)) Emit(m); else Emit(new byte[] { 0x1A, 0x00, p[2], p[3], 0xFF }); }
+                        else { mems[ch] = (byte[])p.Clone(); Ok(); }
+                        return;
+                    }
+                    if (n >= 2 && p[1] == 0x03) { Width(rx, pref, p); return; } break;
                 case 0x21: Cmd21(p); return;
                 case 0x27: Cmd27(p); return;
             }
@@ -223,6 +231,7 @@ namespace IC7760Link
             Emit(new byte[] { 0x01, (byte)mode[rx], (byte)filt[rx] }, 0x00);
         }
 
+        readonly Dictionary<int, byte[]> mems = new Dictionary<int, byte[]>();
         void Cmd07(byte[] p)
         {
             if (p.Length == 1) { Ok(); return; }

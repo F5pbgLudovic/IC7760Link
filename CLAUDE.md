@@ -6,8 +6,9 @@ Consignes pour reprendre ce projet avec un minimum de lecture. **Lire d'abord `R
 - Répondre en **français**.
 - Projet versionné dans un **git local** ; chaque changement notable = un commit ; `CHAT.md` consigne les échanges ; les décisions d'architecture sont dans `docs/adr/` (un ADR par décision) ; ces règles sont dans ce fichier.
 - Tester **uniquement sur le poste virtuel** (`--virtual`, `--selftest`, `--shot`). Jamais de vraie station, jamais d'émission réelle.
-- **Un zip numéroté par mise à jour** : changer `Version` dans `src\MainForm.cs`, compiler, copier `LISEZMOI.md` dans `dist`, créer `IC7760Link-X.Y.zip` avec `IC7760Link.exe`, `LISEZMOI.md`, `AIDE.md`, `LICENSE` et les fichiers `AIDE-POUR-L-AMI.txt`, `Diagnostic.bat`, `ic7760-catalogue-CI-V.txt` de `dist`, **sans** le dossier `data` ; supprimer l'ancien zip ; ajouter une entrée à `CHANGELOG.md` et `LISEZMOI.md`.
+- **Un zip numéroté par mise à jour** : changer `Version` dans `src\MainForm.cs`, compiler, copier `LISEZMOI.md` dans `dist`, créer `IC7760Link-X.Y.zip` avec `IC7760Link.exe`, `LISEZMOI.md`, `AIDE.md`, `AIDE-EN.md`, `LICENSE` et les fichiers `AIDE-POUR-L-AMI.txt`, `Diagnostic.bat`, `ic7760-catalogue-CI-V.txt` de `dist`, **sans** le dossier `data` ; supprimer l'ancien zip ; ajouter une entrée à `CHANGELOG.md` et `LISEZMOI.md`.
 - Publier sur GitHub (`F5pbgLudovic/IC7760Link`) seulement sur demande : commit, tag `vX.Y`, release avec l'exe et le zip (voir « Publication »).
+- Documentation **bilingue** : toute modification de `AIDE.md` (français) est reportée dans `AIDE-EN.md` (anglais) ; README bilingue ; release GitHub avec notes FR + EN.
 - Fenêtre : échelle proportionnelle, rapport conservé, aucun ascenseur (ADR 0003). Tout nouveau contrôle doit être créé avant `BuildStage()` ou être sensible à l'échelle.
 - Données de la vie privée : ne jamais mettre d'adresse e-mail ni de données personnelles dans le dépôt.
 

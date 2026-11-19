@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO.Ports;
@@ -8,7 +8,7 @@ namespace IC7760Link
 {
     public class MainForm : Form
     {
-        public const string Version = "2.8";
+        public const string Version = "2.9";
         readonly Rig rig = new Rig();
         readonly ScopeView[] views = new ScopeView[2];
         readonly List<Action> links = new List<Action>();
@@ -477,12 +477,12 @@ namespace IC7760Link
                 optForm.ThemeChanged += delegate(Dictionary<int, Color> map) { foreach (Form fm in Application.OpenForms) Theme.Recolor(fm, map); };
                 optForm.Changed += delegate { int cu = Palettes.Names.Length - 1; if (cbPal.SelectedIndex != cu) cbPal.SelectedIndex = cu; foreach (ScopeView v in views) if (v != null) v.Invalidate(); };
             }
-            optForm.Show(this); optForm.BringToFront();
+            if (!optForm.Visible) optForm.Show(this); optForm.BringToFront();
         }
         void ShowConfig()
         {
             Cfg.SetInt("w", ClientSize.Width); Cfg.SetInt("h", ClientSize.Height); Cfg.Save();
-            using (ConfigForm cf = new ConfigForm(RadioDump(), rig.Connected))
+            using (ConfigForm cf = new ConfigForm(RadioDump(), rig.Connected, rig, delegate { if (rig.Connected) ApplyPending(); }))
             {
                 cf.ShowDialog(this);
                 if (cf.Imported) { importing = true; Application.Restart(); Close(); }
@@ -512,6 +512,21 @@ namespace IC7760Link
             return sb.ToString();
         }
 
+        // Réglages importés en attente (radio.* et menu.*) : renvoyés au poste dès qu'il est connecté
+        void ApplyPending()
+        {
+            if (Cfg.GetBool("radio.pending", false)) { Cfg.Set("radio.pending", "0"); ApplyRadio(Cfg.WithPrefix("radio.")); Cfg.RemovePrefix("radio."); }
+            if (Cfg.GetBool("menu.pending", false))
+            {
+                Dictionary<string, string> m = Cfg.WithPrefix("menu."); Cfg.RemovePrefix("menu.");
+                System.Threading.ThreadPool.QueueUserWorkItem(delegate { rig.WriteMenu(m); });
+            }
+            if (Cfg.GetBool("memch.pending", false))
+            {
+                Dictionary<string, string> m = Cfg.WithPrefix("memch."); Cfg.RemovePrefix("memch.");
+                System.Threading.ThreadPool.QueueUserWorkItem(delegate { rig.WriteMemories(m); });
+            }
+        }
         // Renvoie au poste les réglages "radio.*" ; retourne un compte rendu
         string ApplyRadio(Dictionary<string, string> kv)
         {
@@ -573,7 +588,7 @@ namespace IC7760Link
             ScopeFrame f; int n = 0;
             while (rig.ScopeQueue.TryDequeue(out f) && n++ < 40) { ScopeView v = views[f.Rx & 1]; if (v != null) v.Push(f); }
             if (rig.Connected) { if (connSeen == 0) connSeen = Environment.TickCount | 1; } else connSeen = 0;
-            if (connSeen != 0 && Environment.TickCount - connSeen > 6000 && Cfg.GetBool("radio.pending", false)) { Cfg.Set("radio.pending", "0"); ApplyRadio(Cfg.WithPrefix("radio.")); Cfg.RemovePrefix("radio."); }
+            if (connSeen != 0 && Environment.TickCount - connSeen > 6000) ApplyPending();
             foreach (ScopeView sv in views) if (sv != null) sv.Animate();
             int tick = Environment.TickCount;
             bool full = tick - lastFull > 200; int ver = rig.Version;
@@ -775,7 +790,7 @@ namespace IC7760Link
                     case "analog": SetAnalog(true); break;
                     case "lock": kPow.Locked = true; kWidth.Locked = true; bPmax.Locked = true; break; case "unlock": kPow.Locked = false; kWidth.Locked = false; bPmax.Locked = false; break; case "pmax": Cfg.SetInt("pmax", 40); ApplyPmax(false); break; case "pmax0": Cfg.SetInt("pmax", 200); ApplyPmax(false); break;
                     case "theme": { Color[] tb = Theme.Snapshot(); Theme.Set(0, Color.FromArgb(40, 10, 10)); Theme.Set(1, Color.FromArgb(60, 20, 20)); Theme.Set(11, Color.LimeGreen); Theme.Set(12, Color.Magenta); Theme.Set(4, Color.Yellow); foreach (Form fm in Application.OpenForms) Theme.Recolor(fm, Theme.Map(tb, Theme.Snapshot())); } break;
-                    case "optshot": { OptionsForm of = new OptionsForm(null, null); of.Show(this); Application.DoEvents(); using (Bitmap bm = new Bitmap(of.ClientSize.Width, of.ClientSize.Height)) { of.DrawToBitmap(bm, new Rectangle(0, 0, bm.Width, bm.Height)); bm.Save("opt.png"); } using (ColorPickForm cp = new ColorPickForm(Color.OrangeRed, "x")) { cp.Show(this); Application.DoEvents(); using (Bitmap bm = new Bitmap(cp.ClientSize.Width, cp.ClientSize.Height)) { cp.DrawToBitmap(bm, new Rectangle(0, 0, bm.Width, bm.Height)); bm.Save("pick.png"); } } using (ConfigForm cf = new ConfigForm("", false)) { cf.Show(this); Application.DoEvents(); using (Bitmap bm = new Bitmap(cf.ClientSize.Width, cf.ClientSize.Height)) { cf.DrawToBitmap(bm, new Rectangle(0, 0, bm.Width, bm.Height)); bm.Save("cfg.png"); } } } break;
+                    case "optshot": { OptionsForm of = new OptionsForm(null, null); of.Show(this); Application.DoEvents(); using (Bitmap bm = new Bitmap(of.ClientSize.Width, of.ClientSize.Height)) { of.DrawToBitmap(bm, new Rectangle(0, 0, bm.Width, bm.Height)); bm.Save("opt.png"); } using (ColorPickForm cp = new ColorPickForm(Color.OrangeRed, "x")) { cp.Show(this); Application.DoEvents(); using (Bitmap bm = new Bitmap(cp.ClientSize.Width, cp.ClientSize.Height)) { cp.DrawToBitmap(bm, new Rectangle(0, 0, bm.Width, bm.Height)); bm.Save("pick.png"); } } using (ConfigForm cf = new ConfigForm("", false, rig, null)) { cf.Show(this); Application.DoEvents(); using (Bitmap bm = new Bitmap(cf.ClientSize.Width, cf.ClientSize.Height)) { cf.DrawToBitmap(bm, new Rectangle(0, 0, bm.Width, bm.Height)); bm.Save("cfg.png"); } } } break;
                     case "radio": { string dd = RadioDump(); int bf = rig.Get(0, "14 01"); rig.Write(0, "14 01", (bf + 40) % 256); string msg = ApplyRadio(Cfg.Parse(dd)); System.IO.File.WriteAllText("radiodump.txt", dd + "# " + msg + " avant=" + bf + " apres=" + rig.Get(0, "14 01") + "\r\n"); } break;
                     case "sub": rig.SelectRx(1); break;
                     case "tune": rig.SetFreq(0, 14205000); break;

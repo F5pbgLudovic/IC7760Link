@@ -80,6 +80,17 @@ namespace IC7760Link
                 CatEntry e = Catalog.Find("1A 05 00 02");
                 Check("entrée SET décodée (1A 05 00 02 : 0..10)", e != null && e.HasRange && e.Min == 0 && e.Max == 10, e == null ? "absente" : e.Min + ".." + e.Max);
                 CatEntry e2 = Catalog.Find("14 01"); Check("14 01 : 2 octets 0..255, [29]", e2 != null && e2.DataLen == 2 && e2.Max == 255 && e2.Direct29, null);
+                // menu interne du poste : lecture complète, modification, réécriture
+                List<string> mn = rig.ReadMenu(null, null); int nm = Rig.MenuEntries().Count;
+                Check("menu interne lu en entier (" + nm + " entrées)", nm > 100 && mn.Count >= nm, mn.Count + " lues");
+                rig.Write(0, "1A 05 00 02", 7); Thread.Sleep(900);
+                Dictionary<string, string> mkv = new Dictionary<string, string>(); mkv["menu.g.1A 05 00 02"] = "3";
+                rig.WriteMenu(mkv); Thread.Sleep(1200); rig.Rx[0].V.Clear(); List<string> mn2 = rig.ReadMenu(null, null);
+                Check("menu réécrit puis relu (1A 05 00 02 = 3)", mn2.Contains("menu.g.1A 05 00 02=3"), mn2.Contains("menu.g.1A 05 00 02=3") ? "" : "valeur absente");
+                // mémoires de fréquences : écriture brute puis relecture
+                Dictionary<string, string> mk = new Dictionary<string, string>(); mk["memch.5"] = "00 00 00 07 07 00 00 03 01 01 00 54 45 53 54"; mk["memch.101"] = "00 00 00 14 20 00 00 01 01 01";
+                rig.WriteMemories(mk); List<string> ml = rig.ReadMemories(null, null);
+                Check("mémoires : 2 canaux écrits puis relus à l'identique", ml.Count == 2 && ml.Contains("memch.5=" + mk["memch.5"]) && ml.Contains("memch.101=" + mk["memch.101"]), string.Join(" | ", ml.ToArray()));
                 rig.Disconnect();
             }
             catch (Exception ex) { sb.AppendLine("EXCEPTION " + ex); fail++; }

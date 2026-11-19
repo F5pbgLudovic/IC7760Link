@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
@@ -127,6 +127,84 @@ namespace IC7760Link
             Rx[r].V[key] = val;
             lock (sync) { coalesce[r + "|" + key] = val; holdoff[r + "|" + key] = clock.ElapsedMilliseconds + 700; }
             Version++;
+        }
+
+        // ---- menu interne du poste (SET, commandes 1A 05 xx xx) : lecture complète pour l'export, réécriture à l'import
+        public static List<CatEntry> MenuEntries()
+        {
+            List<CatEntry> l = new List<CatEntry>();
+            foreach (CatEntry e in Catalog.All)
+                if (e.Cmd == 0x1A && e.SubText.StartsWith("05") && e.HasRange && (e.Notes.IndexOf("send/read", StringComparison.OrdinalIgnoreCase) >= 0 || e.Name.IndexOf("send/read", StringComparison.OrdinalIgnoreCase) >= 0)) l.Add(e);
+            return l;
+        }
+        // Lit toutes les entrées du menu ; retourne des lignes "menu.g.<cmd>=v" / "menu.rxN.<cmd>=v". progress(fait,total) retourne false pour annuler ; pump traite les messages de la fenêtre.
+        public List<string> ReadMenu(Func<int, int, bool> progress, Action pump)
+        {
+            List<string> res = new List<string>(); List<CatEntry> es = MenuEntries(); int done = 0, total = es.Count;
+            foreach (CatEntry e in es)
+            {
+                if (progress != null && !progress(done++, total)) break;
+                for (int r = 0; r < (e.Direct29 ? 2 : 1); r++)
+                {
+                    int dummy; Rx[r].V.TryRemove(e.Key, out dummy);
+                    Read(r, e.Key);
+                    long t0 = clock.ElapsedMilliseconds;
+                    while (!Rx[r].V.ContainsKey(e.Key) && clock.ElapsedMilliseconds - t0 < 300) { Thread.Sleep(4); if (pump != null) pump(); }
+                    int v; if (Rx[r].V.TryGetValue(e.Key, out v)) res.Add("menu." + (e.Direct29 ? "rx" + r : "g") + "." + e.Key + "=" + v);
+                }
+            }
+            if (progress != null) progress(total, total);
+            return res;
+        }
+        // ---- mémoires de fréquences du poste (1A 00 mmmm…) : les octets de données sont conservés tels que le poste les envoie (format indépendant), 1..99 + bords de scan P1/P2 (100, 101)
+        public readonly System.Collections.Concurrent.ConcurrentDictionary<int, byte[]> MemRaw = new System.Collections.Concurrent.ConcurrentDictionary<int, byte[]>();
+        static byte[] MemHead(int ch) { return new byte[] { 0x1A, 0x00, Civ.ToBcd(ch / 100), Civ.ToBcd(ch % 100) }; }
+        // Retourne des lignes "memch.N=<octets hexa>" pour les canaux non vides
+        public List<string> ReadMemories(Func<int, int, bool> progress, Action pump)
+        {
+            List<string> res = new List<string>(); int total = 101;
+            for (int ch = 1; ch <= total; ch++)
+            {
+                if (progress != null && !progress(ch - 1, total)) break;
+                byte[] d; MemRaw.TryRemove(ch, out d); Raw(MemHead(ch));
+                long t0 = clock.ElapsedMilliseconds;
+                while (!MemRaw.ContainsKey(ch) && clock.ElapsedMilliseconds - t0 < 500) { Thread.Sleep(4); if (pump != null) pump(); }
+                if (MemRaw.TryGetValue(ch, out d) && d.Length > 5 && d[4] != 0xFF)
+                {
+                    StringBuilder sb = new StringBuilder(); for (int i = 4; i < d.Length; i++) { if (i > 4) sb.Append(' '); sb.Append(d[i].ToString("X2")); }
+                    res.Add("memch." + ch + "=" + sb);
+                }
+            }
+            if (progress != null) progress(total, total);
+            return res;
+        }
+        public int WriteMemories(Dictionary<string, string> kv)
+        {
+            int n = 0;
+            foreach (KeyValuePair<string, string> p in kv)
+            {
+                if (!p.Key.StartsWith("memch.") || p.Key == "memch.pending") continue;
+                int ch; if (!int.TryParse(p.Key.Substring(6), out ch) || ch < 1 || ch > 101) continue;
+                List<byte> b = new List<byte>(MemHead(ch));
+                try { foreach (string h in p.Value.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)) b.Add(Convert.ToByte(h, 16)); } catch { continue; }
+                if (b.Count < 6) continue;
+                Raw(b.ToArray()); n++; Thread.Sleep(120);
+            }
+            return n;
+        }
+        // Renvoie au poste les lignes "menu.*" (espacées pour ne pas saturer la liaison CI-V) ; retourne le nombre d'entrées envoyées
+        public int WriteMenu(Dictionary<string, string> kv)
+        {
+            int n = 0;
+            foreach (KeyValuePair<string, string> p in kv)
+            {
+                if (!p.Key.StartsWith("menu.") || p.Key == "menu.pending") continue;
+                string s = p.Key.Substring(5); int i = s.IndexOf('.'); if (i < 0) continue;
+                string tag = s.Substring(0, i), key = s.Substring(i + 1); int v; if (!int.TryParse(p.Value, out v)) continue;
+                CatEntry e = Catalog.Find(key); if (e == null || e.Cmd != 0x1A || !e.HasRange) continue;
+                Write(tag == "rx1" ? 1 : 0, key, v); n++; Thread.Sleep(35);
+            }
+            return n;
         }
 
         public int Get(int rx, string key)
@@ -331,6 +409,7 @@ namespace IC7760Link
                     else if (n >= 3 && p[1] == 0x02) { XitOn = p[2] == 1; Version++; }
                     return;
                 case 0x1A:
+                    if (n >= 5 && p[1] == 0x00) { MemRaw[Civ.Bcd(p[2]) * 100 + Civ.Bcd(p[3])] = (byte[])p.Clone(); return; }
                     if (n >= 4 && p[1] == 0x03)
                     {
                         int r = rx >= 0 ? rx : TakePending("1A 03", Sel);
