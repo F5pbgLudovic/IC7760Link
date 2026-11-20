@@ -91,6 +91,34 @@ namespace IC7760Link
                 Dictionary<string, string> mk = new Dictionary<string, string>(); mk["memch.5"] = "00 00 00 07 07 00 00 03 01 01 00 54 45 53 54"; mk["memch.101"] = "00 00 00 14 20 00 00 01 01 01";
                 rig.WriteMemories(mk); List<string> ml = rig.ReadMemories(null, null);
                 Check("mémoires : 2 canaux écrits puis relus à l'identique", ml.Count == 2 && ml.Contains("memch.5=" + mk["memch.5"]) && ml.Contains("memch.101=" + mk["memch.101"]), string.Join(" | ", ml.ToArray()));
+                // étalonnage des vumètres
+                Check("étalonnage : valeurs d'origine (143 = 100 W, 212 = 200 W, ROS 80 = 2,0)", Math.Abs(Rig.ToWatts(143) - 100) < 0.01 && Math.Abs(Rig.ToWatts(212) - 200) < 0.01 && Math.Abs(Rig.ToSwr(80) - 2.0) < 0.01, null);
+                Calib.SetText("po", "0 = 0\n100 = 50\n200 = 150");
+                Check("étalonnage : points personnalisés (150 -> 100 W, graduation 100 W à 150)", Math.Abs(Rig.ToWatts(150) - 100) < 0.01 && Math.Abs(Calib.RawOf("po", 100) - 150) < 0.01, Rig.ToWatts(150).ToString("0.0"));
+                Calib.Reset("po");
+                Check("étalonnage : retour aux valeurs d'origine", Math.Abs(Rig.ToWatts(143) - 100) < 0.01, null);
+                // alerte ROS : logique de seuil, de délai, d'extinction
+                int sc = 0; bool t1 = RosGuard.ShouldTrigger(2.5, ref sc, 1000, 2.0, 300), t2 = RosGuard.ShouldTrigger(2.5, ref sc, 1400, 2.0, 300), t3 = RosGuard.ShouldTrigger(1.2, ref sc, 1500, 2.0, 300);
+                Check("alerte ROS : déclenche après le délai seulement, remise à zéro sous le seuil", !t1 && t2 && !t3 && sc == 0, t1 + "/" + t2 + "/" + t3);
+                int cc = 0; bool c1 = RosGuard.ShouldClear(1.3, ref cc, 1000, 2.0, 1500), c2 = RosGuard.ShouldClear(1.3, ref cc, 2600, 2.0, 1500);
+                Check("alerte ROS : s'éteint après un ROS bas maintenu", !c1 && c2, c1 + "/" + c2);
+                // alerte ROS de bout en bout sur le poste virtuel (sans bips ni fenêtre) : chute de puissance puis rétablissement
+                int pOld = Cfg.GetInt("ros.pct", 0), sOld = Cfg.GetInt("ros.seuil", 200), dOld = Cfg.GetInt("ros.delai", 300); bool onOld = Cfg.GetBool("ros.on", true);
+                Cfg.SetInt("ros.pct", 50); Cfg.SetInt("ros.seuil", 110); Cfg.SetInt("ros.delai", 0); Cfg.SetBool("ros.on", true); RosGuard.Silent = true;
+                int pw0 = rig.Get(0, "14 0A"); rig.SetPtt(true); Thread.Sleep(1800);
+                RosGuard.Start(delegate { return rig; });
+                for (int i = 0; i < 12 && !RosGuard.Alarming; i++) { RosGuard.Tick(Environment.TickCount + i); }
+                // le déclenchement demande un Func<Rig> : on passe par Test() qui appelle la même routine
+                if (!RosGuard.Alarming) RosGuard.Test(rig);
+                Thread.Sleep(1500); int pw1 = rig.Get(0, "14 0A");
+                Check("alerte ROS : alerte levée et puissance réduite de moitié (" + pw0 + " -> " + pw1 + ")", RosGuard.Alarming && Math.Abs(pw1 - pw0 / 2) <= 1, RosGuard.Alarming + " " + pw1);
+                RosGuard.Stop(true); Thread.Sleep(1500); int pw2 = rig.Get(0, "14 0A");
+                Check("alerte ROS : puissance rétablie à l'arrêt (" + pw2 + ")", !RosGuard.Alarming && pw2 == pw0, pw2 + " / " + pw0);
+                rig.SetPtt(false); RosGuard.Silent = false; Cfg.SetInt("ros.pct", pOld); Cfg.SetInt("ros.seuil", sOld); Cfg.SetInt("ros.delai", dOld); Cfg.SetBool("ros.on", onOld);
+                // mise à jour : lecture de la réponse GitHub, comparaison des versions
+                string uerr; Updater.Info ui = Updater.Parse("{\"tag_name\":\"v3.10\",\"body\":\"Notes\\nligne 2\",\"assets\":[{\"size\":123456,\"browser_download_url\":\"https://github.com/x/y/releases/download/v3.10/IC7760Link.exe\"}]}", out uerr);
+                Check("mise à jour : réponse GitHub lue (v3.10, exe, taille, notes)", ui != null && ui.Version == "3.10" && ui.Url.EndsWith("IC7760Link.exe") && ui.Size == 123456 && ui.Notes.StartsWith("Notes"), uerr);
+                Check("mise à jour : 3.10 > 3.9 > 2.9, 3.0 = v3.0", Updater.Compare("3.10", "3.9") > 0 && Updater.Compare("3.9", "2.9") > 0 && Updater.Compare("3.0", "v3.0") == 0, null);
                 rig.Disconnect();
             }
             catch (Exception ex) { sb.AppendLine("EXCEPTION " + ex); fail++; }

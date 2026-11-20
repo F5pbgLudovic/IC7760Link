@@ -1,4 +1,4 @@
-# IC-7760 Link — Aide / mode d'emploi
+﻿# IC-7760 Link — Aide / mode d'emploi
 
 Ce guide explique comment utiliser **IC-7760 Link**, la télécommande CI-V et cascade (waterfall) pour l'ICOM IC-7760.
 **English version: [AIDE-EN.md](AIDE-EN.md).** Pour une présentation rapide, voir le [README](README.md) ; pour le premier essai sur un vrai poste, voir [dist/AIDE-POUR-L-AMI.txt](dist/AIDE-POUR-L-AMI.txt).
@@ -82,6 +82,15 @@ La fenêtre se redimensionne librement en **gardant ses proportions** : tout res
 - **Clic droit** sur la zone des vumètres : bascule entre les **barres** et les deux **vumètres à aiguille** façon écran de l'IC-7760.
 - Sur les vumètres à aiguille : l'aiguille indique le **S** en réception et la mesure choisie en émission ; **clic gauche** = change la mesure (MET : Po, SWR, ALC, COMP, Vd, Id). Le mode, le filtre et la largeur BW sont rappelés.
 
+## 6 bis. Outils (bouton ⚑), bouton TONE, alerte ROS
+
+Le bouton **⚑** (à gauche de ⚙) ouvre la fenêtre **Outils** (4 onglets) ; le bouton **TONE** est à côté de PTT.
+
+- **Micro / TONE** : choisissez le micro du PC et la **carte son USB du poste** ; la case « micro du PC vers le poste » envoie le micro en continu vers le poste (rien n'est rejoué sur le PC). Le bouton **TONE** envoie une tonalité de **1500 Hz** sur cette carte pendant 5 à 60 s (réglable) avec le PTT par CI-V ou le **VOX du poste**, pour régler un coupleur ou une charge ; un second clic l'arrête. Niveau par défaut 15 %. *Réglez le poste (source du modulateur USB en données) et essayez sur charge fictive.* (Le bouton **TUNE** de la barre des touches reste le lancement du coupleur de l'IC-7760.)
+- **Alerte ROS** : en émission, si le ROS dépasse le seuil (2,0 par défaut) pendant le délai (300 ms), des **bips continus** sonnent et une fenêtre rouge apparaît ; la puissance peut **chuter** à un % de la puissance réglée (0 % par défaut = minimum). L'alerte s'éteint si le ROS reste bas (ou si l'émission s'arrête) ; boutons « Arrêter l'alerte » et « Arrêter et rétablir la puissance ». Essais : bips, alerte, et **test TONE à puissance réduite** (puissance d'origine remise à la fin).
+- **Étalonnage** : la courbe « lecture du poste (0-255) → watts » et « → ROS » est modifiable (une ligne `lecture = valeur`, interpolée) ; « Ajouter le point lu » relève la lecture en cours d'émission ; les graduations des vumètres suivent. Valeurs d'origine : 143 = 100 W, 212 = 200 W ; ROS 48 = 1,5, 80 = 2, 120 = 3, 255 = ∞.
+- **Mise à jour** : « Rechercher maintenant » interroge la dernière version publiée sur GitHub ; un clic remplace seulement l'exe (réglages gardés, copie de sécurité dans `data\sauvegarde-avant-MAJ-…`, ancien exe conservé sous `IC7760Link-<version>.exe`) et relance. Case « vérifier au démarrage » (décochée par défaut). L'onglet Micro règle aussi le **maintien du maximum** des vumètres (900 ms par défaut).
+- Les événements (TONE, ROS, micro, mise à jour) sont notés dans `data\evenements.log`. Tous ces réglages sont dans l'export « application ».
 ## 7. Options (bouton ⚙)
 
 La fenêtre Options a un menu à gauche :

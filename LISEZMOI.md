@@ -1,4 +1,4 @@
-# IC-7760 Link 2.9
+﻿# IC-7760 Link 3.0
 
 Télécommande complète de l'ICOM IC-7760 par la liaison USB (protocole CI-V), avec cascade (waterfall) haute qualité.
 Logiciel **portable et autonome** pour Windows 10 / 11 : un seul `IC7760Link.exe`, aucune installation, aucun pilote supplémentaire
@@ -107,6 +107,9 @@ Licence : GPL v3. Projet indépendant, non affilié à ICOM.
 - Zone « Votre indicatif » clarifiée (remplace {C} dans les messages F1-F4).
 - Options > Réglage Molette souris : vitesse des potentiomètres à la molette, 1 à 10 % par cran (2 % par défaut). Boutons STOP non verrouillables.
 - Vumètre à aiguille : puissance moyennée avec repère de crête en émission ; chiffres de fréquence sans « 8 » ni zéros de tête grisés ; titre « IC-7760 Link V2.8 @F5PBG 2026 ».
+
+## Nouveautés 3.0
+- **Bouton TONE** (tonalité 1500 Hz sur la carte son USB du poste + PTT ou VOX), **micro du PC vers le poste**, **alerte ROS** (bips, fenêtre rouge, chute de puissance), **étalonnage** des vumètres Po et ROS, maintien du maximum réglable, **mise à jour en un clic** depuis GitHub : fenêtre **Outils** (bouton ⚑), voir AIDE.md § 6 bis.
 
 ## Nouveautés 2.9
 - Export enrichi : application + réglages affichés du poste + **menu interne de l'IC-7760 (SET)** (232 entrées numériques) + **mémoires de fréquences du poste** (canaux 1-99, bords de scan). Import par cases à cocher (application / réglages du poste / menu / mémoires ; mémoires décochées par défaut car elles écrasent le poste).

@@ -1,4 +1,4 @@
-# IC-7760 Link — User guide (English)
+﻿# IC-7760 Link — User guide (English)
 
 This guide explains how to use **IC-7760 Link**, the CI-V remote control and waterfall for the ICOM IC-7760. French version: [AIDE.md](AIDE.md).
 For a quick overview see the [README](README.md); for the first test on a real radio see [dist/AIDE-POUR-L-AMI.txt](dist/AIDE-POUR-L-AMI.txt) (French).
@@ -83,6 +83,15 @@ The window resizes freely **keeping its proportions**: everything stays visible 
 - **Right click** on the meter area: switches between **bars** and the two **needle meters** styled like the IC-7760 screen.
 - On needle meters: the needle shows **S** on receive and the chosen measurement on transmit; **left click** changes the measurement (MET: Po, SWR, ALC, COMP, Vd, Id). In transmit the power needle is averaged, with a red tick for the peak. Mode, filter and BW are shown.
 
+## 6 bis. Tools (⚑ button), TONE button, SWR alert
+
+The **⚑** button (left of ⚙) opens the **Tools** window (4 tabs); the **TONE** button sits next to PTT.
+
+- **Mic / TONE**: choose the PC microphone and the radio's **USB sound card**; the "PC microphone to radio" box streams the microphone to the radio continuously (nothing is played back on the PC). The **TONE** button sends a **1500 Hz** tone to that card for 5 to 60 s (adjustable) with PTT over CI-V or the radio's **VOX**, to tune a coupler or a load; a second click stops it. Default level 15 %. *Set the radio (USB modulation source in data mode) and test on a dummy load.* (The **TUNE** button in the key bar still starts the IC-7760's antenna tuner.)
+- **SWR alert**: while transmitting, if the SWR exceeds the threshold (2.0 by default) for the delay (300 ms), **continuous beeps** sound and a red window appears; power can **drop** to a % of the set power (0 % by default = minimum). The alert ends by itself when the SWR stays low (or transmission stops); buttons "Stop the alert" and "Stop and restore power". Tests: beeps, alert, and a **reduced-power TONE test** (original power restored afterwards).
+- **Calibration**: the "radio reading (0-255) → watts" and "→ SWR" curves are editable (one `reading = value` line per point, interpolated); "Add the current reading" captures the reading during transmission; the meter scales follow. Defaults: 143 = 100 W, 212 = 200 W; SWR 48 = 1.5, 80 = 2, 120 = 3, 255 = ∞.
+- **Update**: "Check now" queries the latest GitHub release; one click replaces only the exe (settings kept, safety copy in `data\sauvegarde-avant-MAJ-…`, old exe kept as `IC7760Link-<version>.exe`) and restarts. "Check at startup" box (off by default). The Mic tab also sets the meters' **peak hold** (900 ms by default).
+- Events (TONE, SWR, mic, update) are logged in `data\evenements.log`. All these settings are part of the "application" export.
 ## 7. Options (⚙ button)
 
 The Options window has a menu on the left:

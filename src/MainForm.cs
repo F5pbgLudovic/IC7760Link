@@ -8,7 +8,7 @@ namespace IC7760Link
 {
     public class MainForm : Form
     {
-        public const string Version = "2.9";
+        public const string Version = "3.0";
         readonly Rig rig = new Rig();
         readonly ScopeView[] views = new ScopeView[2];
         readonly List<Action> links = new List<Action>();
@@ -21,7 +21,7 @@ namespace IC7760Link
         DarkCombo cbPort, cbBaud, tbAddr; Btn btnConnect, btnPtt; Label lbStatus, lbClock, lbTx;
         // barre de modes
         readonly Dictionary<int, Btn> modeBtn = new Dictionary<int, Btn>(); readonly Btn[] filBtn = new Btn[4], dataBtn = new Btn[4];
-        Btn bSplit, bDual, bRit, bXit, bTuner; DarkCombo cbStep; Knob kRit;
+        Btn btnTone; Btn bSplit, bDual, bRit, bXit, bTuner; DarkCombo cbStep; Knob kRit;
         // scope
         Panel scopeHost; readonly Dictionary<string, Btn> sBtn = new Dictionary<string, Btn>();
         Btn bScMain, bScSub, bScDualV, bScDualH, bAuto, bHold, bPeaks, bPlan, bSpeed, bAvg, bSweep; Label lbRef; DarkCombo cbPal; Knob kLow, kHigh;
@@ -56,7 +56,9 @@ namespace IC7760Link
             rig.Heard += delegate(byte src) { MonitorForm m = monitor; if (m != null && !m.IsDisposed) m.Heard(src); };
             rig.Log += delegate(string s, bool tx) { MonitorForm m = monitor; if (m != null && !m.IsDisposed) m.Add(s, tx); };
             uiTimer.Interval = 10; uiTimer.Tick += OnTick; uiTimer.Start();
-            Load += delegate { RestoreSettings(); ApplyScopeLayout(); };
+            Load += delegate { RestoreSettings(); ApplyScopeLayout(); ApplyCal(); };
+            Calib.Changed += ApplyCal;
+            Shown += delegate { RosGuard.Start(delegate { return rig; }); MicRoute.Update(); Updater.CheckAtStart(this); };
             FormClosing += OnClosing;
         }
 
@@ -104,11 +106,13 @@ namespace IC7760Link
             Label l2 = new Label(); l2.Text = "Adresse"; l2.ForeColor = T.Dim; l2.SetBounds(104, y + 52, 58, 18); right.Controls.Add(l2);
             tbAddr = new DarkCombo(); tbAddr.DropDownStyle = ComboBoxStyle.DropDown; tbAddr.Items.Add("94"); tbAddr.Items.Add("B2"); tbAddr.Text = "94"; tbAddr.MaxLength = 2; tbAddr.SetBounds(162, y + 48, 42, 24); right.Controls.Add(tbAddr);
             btnConnect = new Btn(); btnConnect.Text = "CONNECTER"; btnConnect.SetBounds(208, y + 46, 116, 28); btnConnect.Accent = T.Green; right.Controls.Add(btnConnect); btnConnect.Click += delegate { ToggleConnect(); };
-            lbStatus = new Label(); lbStatus.SetBounds(6, y + 78, 284, 34); lbStatus.ForeColor = T.Dim; lbStatus.Font = new Font("Segoe UI", 8.5f); right.Controls.Add(lbStatus);
-            btnPtt = new Btn(); btnPtt.Text = "ÉMISSION (PTT)"; btnPtt.SetBounds(6, y + 114, 250, 26); btnPtt.Accent = T.Red; right.Controls.Add(btnPtt); btnPtt.Click += delegate { rig.SetPtt(!rig.Ptt); };
+            lbStatus = new Label(); lbStatus.SetBounds(6, y + 78, 254, 34); lbStatus.ForeColor = T.Dim; lbStatus.Font = new Font("Segoe UI", 8.5f); right.Controls.Add(lbStatus);
+            btnPtt = new Btn(); btnPtt.Text = "ÉMISSION (PTT)"; btnPtt.SetBounds(6, y + 114, 186, 26); btnPtt.Accent = T.Red; right.Controls.Add(btnPtt); btnPtt.Click += delegate { rig.SetPtt(!rig.Ptt); };
             Btn bh = new Btn(); bh.Text = "?"; bh.Led = false; bh.SetBounds(260, y + 114, 30, 26); right.Controls.Add(bh); bh.Click += delegate { ShowHelp(); };
             Btn bo = new Btn(); bo.Text = "\u2699"; bo.Led = false; bo.SetBounds(294, y + 84, 26, 26); right.Controls.Add(bo); bo.Click += delegate { ShowOptions(); };
             Btn bx = new Btn(); bx.Text = "⇅"; bx.Led = false; bx.SetBounds(294, y + 114, 26, 26); right.Controls.Add(bx); bx.Click += delegate { ShowConfig(); };
+            btnTone = new Btn(); btnTone.Text = "TONE"; btnTone.SetBounds(196, y + 114, 60, 26); btnTone.Accent = T.Red; right.Controls.Add(btnTone); btnTone.LockOnRight = false; btnTone.Click += delegate { TuneMic.Toggle(rig); };
+            Btn bt = new Btn(); bt.Text = "⚑"; bt.Led = false; bt.SetBounds(264, y + 84, 26, 26); right.Controls.Add(bt); bt.Click += delegate { ShowTools(); };
             lbClock = new Label(); lbClock.SetBounds(214, y, 112, 18); lbClock.ForeColor = T.Cyan; lbClock.TextAlign = ContentAlignment.MiddleRight; lbClock.Font = new Font("Consolas", 9.5f, FontStyle.Bold); right.Controls.Add(lbClock);
 
             cbPort.Items.Add("Poste virtuel (simulateur IC-7760)");
@@ -479,6 +483,29 @@ namespace IC7760Link
             }
             if (!optForm.Visible) optForm.Show(this); optForm.BringToFront();
         }
+        ToolsForm toolsForm;
+        void ShowTools()
+        {
+            if (toolsForm == null || toolsForm.IsDisposed)
+                toolsForm = new ToolsForm(rig, this, delegate(string k) { return rig.Rx[0].Get(k == "po" ? "15 11" : "15 12"); });
+            if (!toolsForm.Visible) toolsForm.Show(this); toolsForm.BringToFront();
+        }
+        // graduations des vumètres Po / ROS selon l'étalonnage
+        void ApplyCal()
+        {
+            if (mPo == null || mSwr == null) return;
+            double[] w = { 0, 50, 100, 150, 200 }, s = { 1, 1.5, 2, 3, 10 };
+            for (int i = 0; i < w.Length && i < mPo.TickPos.Length; i++) mPo.TickPos[i] = Math.Max(0, Math.Min(1, Calib.RawOf("po", w[i]) / mPo.Max));
+            for (int i = 0; i < s.Length && i < mSwr.TickPos.Length; i++) mSwr.TickPos[i] = Math.Max(0, Math.Min(1, Calib.RawOf("swr", s[i]) / mSwr.Max));
+            mPo.Invalidate(); mSwr.Invalidate(); if (analog != null) analog.Invalidate();
+        }
+        public bool CanQuitForUpdate()
+        {
+            if (rig.Ptt) { MessageBox.Show(this, "Le poste est en émission : arrêtez l'émission avant la mise à jour.", "Mise à jour"); return false; }
+            return true;
+        }
+        public void QuitForUpdate() { Cfg.SetInt("w", ClientSize.Width); Cfg.SetInt("h", ClientSize.Height); Cfg.Save(); importing = true; Close(); }
+        int noticeUntil; string lastNotice;
         void ShowConfig()
         {
             Cfg.SetInt("w", ClientSize.Width); Cfg.SetInt("h", ClientSize.Height); Cfg.Save();
@@ -611,7 +638,11 @@ namespace IC7760Link
             if (analog.Visible) { analog.TxIdx = rig.Ptt ? rig.Sel : -1; for (int q = 0; q < 2; q++) { RxState rs = rig.Rx[q]; analog.Bw[q] = rs.Width >= 1000 ? (rs.Width / 1000.0).ToString("0.#") + "k" : rs.Width.ToString(); analog.Mode[q] = Widths.ModeName(rs.Mode); analog.Fil[q] = "FIL" + Math.Max(1, rs.Filter); } analog.Invalidate(); }
             foreach (Action a in links) a();
             btnPtt.Set(rig.Ptt, rig.Ptt ? "ÉMISSION !" : "ÉMISSION (PTT)");
+            btnTone.Set(TuneMic.Active, TuneMic.Active ? "TONE " + TuneMic.Left : "TONE");
             lbStatus.Text = rig.Status + (rig.Connected ? "   " + rig.FramesPerSec + " trames/s" : ""); lbStatus.ForeColor = rig.Connected ? T.Green : (rig.Link != null ? T.Amber : T.Dim);
+            if (RosGuard.Notice != null) { lastNotice = RosGuard.Notice; lbStatus.Text = lastNotice; RosGuard.Notice = null; noticeUntil = Environment.TickCount + 8000; }
+            else if (Environment.TickCount - noticeUntil < 0 && lastNotice != null) lbStatus.Text = lastNotice;
+            if (RosGuard.Alarming) { lbStatus.Text = RosGuard.AlarmText; lbStatus.ForeColor = T.Red; }
             if (rig.Link != null && !rig.Connected && Environment.TickCount - connStart > 3000) lbStatus.Text = "Aucune réponse du poste : vérifiez le port COM, la vitesse (115200) et l'adresse CI-V (94).";
             if (rig.Link == null) btnConnect.Set(false, "CONNECTER");
             lbClock.Text = DateTime.UtcNow.ToString("HH:mm:ss") + " UTC";
@@ -757,6 +788,7 @@ namespace IC7760Link
         {
             try
             {
+                TuneMic.Stop(null); RosGuard.Stop(false); MicRoute.Stop();
                 if (rig.Ptt) rig.SetPtt(false);
                 if (!importing) { Cfg.SetInt("w", ClientSize.Width); Cfg.SetInt("h", ClientSize.Height); Cfg.SetBool("autoconnect", rig.Link != null && cbPort.SelectedIndex > 0); Cfg.Save(); }
                 System.Threading.Thread.Sleep(60); rig.Disconnect();
@@ -790,6 +822,7 @@ namespace IC7760Link
                     case "analog": SetAnalog(true); break;
                     case "lock": kPow.Locked = true; kWidth.Locked = true; bPmax.Locked = true; break; case "unlock": kPow.Locked = false; kWidth.Locked = false; bPmax.Locked = false; break; case "pmax": Cfg.SetInt("pmax", 40); ApplyPmax(false); break; case "pmax0": Cfg.SetInt("pmax", 200); ApplyPmax(false); break;
                     case "theme": { Color[] tb = Theme.Snapshot(); Theme.Set(0, Color.FromArgb(40, 10, 10)); Theme.Set(1, Color.FromArgb(60, 20, 20)); Theme.Set(11, Color.LimeGreen); Theme.Set(12, Color.Magenta); Theme.Set(4, Color.Yellow); foreach (Form fm in Application.OpenForms) Theme.Recolor(fm, Theme.Map(tb, Theme.Snapshot())); } break;
+                    case "toolshot": { ShowTools(); Application.DoEvents(); for (int tp = 0; tp < toolsForm.TabCount; tp++) { toolsForm.SelectTab(tp); Application.DoEvents(); using (Bitmap bm = new Bitmap(toolsForm.ClientSize.Width, toolsForm.ClientSize.Height)) { toolsForm.DrawToBitmap(bm, new Rectangle(0, 0, bm.Width, bm.Height)); bm.Save("tools" + tp + ".png"); } } } break;
                     case "optshot": { OptionsForm of = new OptionsForm(null, null); of.Show(this); Application.DoEvents(); using (Bitmap bm = new Bitmap(of.ClientSize.Width, of.ClientSize.Height)) { of.DrawToBitmap(bm, new Rectangle(0, 0, bm.Width, bm.Height)); bm.Save("opt.png"); } using (ColorPickForm cp = new ColorPickForm(Color.OrangeRed, "x")) { cp.Show(this); Application.DoEvents(); using (Bitmap bm = new Bitmap(cp.ClientSize.Width, cp.ClientSize.Height)) { cp.DrawToBitmap(bm, new Rectangle(0, 0, bm.Width, bm.Height)); bm.Save("pick.png"); } } using (ConfigForm cf = new ConfigForm("", false, rig, null)) { cf.Show(this); Application.DoEvents(); using (Bitmap bm = new Bitmap(cf.ClientSize.Width, cf.ClientSize.Height)) { cf.DrawToBitmap(bm, new Rectangle(0, 0, bm.Width, bm.Height)); bm.Save("cfg.png"); } } } break;
                     case "radio": { string dd = RadioDump(); int bf = rig.Get(0, "14 01"); rig.Write(0, "14 01", (bf + 40) % 256); string msg = ApplyRadio(Cfg.Parse(dd)); System.IO.File.WriteAllText("radiodump.txt", dd + "# " + msg + " avant=" + bf + " apres=" + rig.Get(0, "14 01") + "\r\n"); } break;
                     case "sub": rig.SelectRx(1); break;

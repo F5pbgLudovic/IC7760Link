@@ -130,7 +130,7 @@ namespace IC7760Link
     // ------------------------------------------------------------------ bargraphe
     public class MeterBar : Control
     {
-        public double Max = 241, Hot = 0.5; public string Title = ""; public string[] TickText; public double[] TickPos; public Func<int, string> Fmt;
+        public static int HoldMs = 900; public double Max = 241, Hot = 0.5; public string Title = ""; public string[] TickText; public double[] TickPos; public Func<int, string> Fmt;
         public Color Cool = T.Green, Warm = T.Amber, Over = T.Red; public double OverAt = 2;
         double val, peak, avg; int peakTick;
         public double AvgFrac { get { return avg / Max; } } public double PeakFrac { get { return peak / Max; } } public int AvgRaw { get { return (int)Math.Round(avg); } }
@@ -139,7 +139,7 @@ namespace IC7760Link
         public void SetValue(int v)
         {
             double nv = Math.Max(0, Math.Min(Max, v)); int tick = Environment.TickCount;
-            avg += (nv - avg) * 0.35; if (nv >= peak) { peak = nv; peakTick = tick; } else if (tick - peakTick > 900) peak = Math.Max(nv, peak - Max * 0.02);
+            avg += (nv - avg) * 0.35; if (nv >= peak) { peak = nv; peakTick = tick; } else if (tick - peakTick > HoldMs) peak = Math.Max(nv, peak - Max * 0.02);
             if (Math.Abs(nv - val) > 0.01 || peak != nv) { val = nv; Invalidate(); }
             lastRaw = v;
         }

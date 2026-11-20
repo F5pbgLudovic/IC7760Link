@@ -1,4 +1,4 @@
-# CLAUDE.md — IC-7760 Link
+﻿# CLAUDE.md — IC-7760 Link
 
 Consignes pour reprendre ce projet avec un minimum de lecture. **Lire d'abord `REPRISE.md`** (état, carte des fichiers, commandes), puis seulement les fichiers utiles. Ne pas relire tout le code ni `CHAT.md` sans besoin précis.
 
@@ -15,7 +15,7 @@ Consignes pour reprendre ce projet avec un minimum de lecture. **Lire d'abord `R
 ## Commandes
 - Compiler : `powershell -ExecutionPolicy Bypass -File build.ps1` (csc de Windows, C# 5 : pas d'async/await, pas d'interpolation `$""`).
 - Autotest : `dist\IC7760Link.exe --selftest=rapport.txt` → « TOUS LES TESTS PASSENT » (le test « PTT retour d'état » est parfois instable sous charge : relancer).
-- Capture : `--shot=image.png,ms,actions` (actions séparées par `+` : dual, sub, tune, cw, tx, zoom, fixed, ft8, sideh, forms, small, big, wide, analog, theme, radio, optshot). Lancer l'exe depuis PowerShell et utiliser un chemin relatif.
+- Capture : `--shot=image.png,ms,actions` (actions séparées par `+` : dual, sub, tune, cw, tx, zoom, fixed, ft8, sideh, forms, small, big, wide, analog, theme, radio, optshot, toolshot). Lancer l'exe depuis PowerShell et utiliser un chemin relatif.
 - Diagnostic poste réel : `Diagnostic.bat` ou `--diag=COM5,115200,94`.
 - Pas de Python sur la machine : éditer avec l'outil Edit ou PowerShell. Scripts PowerShell contenant des accents : les enregistrer en UTF-8 **avec BOM**.
 

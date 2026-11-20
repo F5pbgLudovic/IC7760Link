@@ -1,7 +1,11 @@
-# Journal des versions / Changelog
+﻿# Journal des versions / Changelog
 
 Format : une section par version, la plus récente en haut. Dates = 2026.
 
+## 3.0 — 20 novembre
+- Reprise des améliorations de HamRadioLink : **bouton TONE** (tonalité 1500 Hz sur la carte son USB du poste + PTT ou VOX, niveau/durée réglables), **micro du PC vers le poste**, **alerte ROS** (bips, fenêtre rouge, chute de puissance, test TONE à puissance réduite), **étalonnage** des vumètres Po et ROS (points interpolés, graduations qui suivent), **maintien du maximum** réglable, **mise à jour en un clic** depuis GitHub.
+- Nouvelle fenêtre **Outils** (bouton ⚑) ; journal `data\evenements.log`. Réglages inclus dans l'export « application ».
+- Autotest : étalonnage, logique et bout en bout de l'alerte ROS (chute et rétablissement de puissance), lecture de la réponse GitHub.
 ## 2.9 — 19 novembre
 - Export complet : application + réglages affichés du poste + menu interne de l'IC-7760 (232 entrées SET numériques lues sur le poste). Import avec cases à cocher (application / réglages du poste / menu IC-7760). Mémoires de fréquences du poste (canaux 1-99, bords de scan) exportées et réimportables (case dédiée, décochée par défaut). Autotest : lecture et réécriture du menu et des mémoires.
 - Nouveau : AIDE-EN.md (guide en anglais) ; README et LISEZMOI mis à jour.

@@ -494,13 +494,7 @@ namespace IC7760Link
             if (v <= 120) return "S" + (int)Math.Round(v / 120.0 * 9);
             return "S9+" + (int)Math.Round((v - 120) / 121.0 * 60) + "dB";
         }
-        public static double ToWatts(int v) { return v <= 143 ? v / 143.0 * 100.0 : 100.0 + (v - 143) / 69.0 * 100.0; }
-        public static double ToSwr(int v)
-        {
-            if (v <= 48) return 1.0 + v / 48.0 * 0.5;
-            if (v <= 80) return 1.5 + (v - 48) / 32.0 * 0.5;
-            if (v <= 120) return 2.0 + (v - 80) / 40.0 * 1.0;
-            return 3.0 + (v - 120) / 135.0 * 7.0;
-        }
+        public static double ToWatts(int v) { return Calib.Interp("po", v); }
+        public static double ToSwr(int v) { return Calib.Interp("swr", v); }
     }
 }
